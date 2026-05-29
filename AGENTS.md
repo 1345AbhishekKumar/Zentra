@@ -12,6 +12,8 @@ Update context/progress-tracker.md after each meaningful implementation change.
 If implementation changes the architecture, scope, or standards documented in the contents files, update the relevant file before continuing.
 --
 
+Always use bun for installing packages
+
 ## Project Overview
 
 We are building Zentra, a privacy-first mobile app that helps individuals and businesses track their important documents and receive timely alerts before they expire.

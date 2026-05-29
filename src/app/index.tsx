@@ -4,6 +4,8 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <Text>Welcome to Zentra</Text>
+      <Text>Welcome to Zentra</Text>
+      <Text>it"sa an expo app </Text>
     </View>
   );
 }
