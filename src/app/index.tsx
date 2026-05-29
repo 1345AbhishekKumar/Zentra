@@ -1,19 +1,6 @@
-import { Text, View, StyleSheet } from "react-native";
+import { Redirect } from "expo-router";
 
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>Welcome to Zentra</Text>
-      <Text>Welcome to Zentra</Text>
-      <Text>it"sa an expo app </Text>
-    </View>
-  );
+  return <Redirect href="/sign-up" />;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

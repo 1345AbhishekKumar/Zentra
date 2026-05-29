@@ -2,6 +2,6 @@
 @import "./theme/tokens.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
-@import "./theme/utilities.css" layer(utilities);
+@import "./theme/utilities.css";
 
 @import "nativewind/theme";
