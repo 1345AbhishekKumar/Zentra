@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,16 +9,37 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import { Link, Stack } from "expo-router";
+import { Link, Stack, useRouter } from "expo-router";
 import { images } from "@/constants/images";
 import { VerificationModal } from "@/components/VerificationModal";
+import { useSignUp, useSSO } from "@clerk/expo";
+import * as WebBrowser from "expo-web-browser";
 
 export default function SignUp() {
+  const router = useRouter();
+  const { signUp, fetchStatus } = useSignUp();
+  const { startSSOFlow } = useSSO();
+  
+  const isLoaded = !!signUp;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    // Warm up the browser to improve UX
+    if (Platform.OS !== "web") {
+      void WebBrowser.warmUpAsync();
+      return () => {
+        void WebBrowser.coolDownAsync();
+      };
+    }
+  }, []);
 
   // Focus states
   const [isEmailFocused, setIsEmailFocused] = useState(false);
@@ -52,7 +73,10 @@ export default function SignUp() {
     return "";
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
+    console.log("handleSignUp called, isLoaded:", isLoaded);
+    if (!isLoaded) return;
+
     const emailErr = validateEmail(email);
     const passErr = validatePassword(password);
 
@@ -60,7 +84,61 @@ export default function SignUp() {
     setPasswordError(passErr);
 
     if (!emailErr && !passErr) {
-      setModalVisible(true);
+      setIsLoading(true);
+      try {
+        console.log("Attempting sign-up for:", email);
+        const result = await signUp.create({
+          emailAddress: email,
+          password,
+        });
+
+        if (result.error) {
+          throw { errors: [result.error] };
+        }
+
+        console.log("Preparing email verification...");
+        const verificationResult = await signUp.verifications.sendEmailCode();
+        if (verificationResult.error) {
+          throw { errors: [verificationResult.error] };
+        }
+        console.log("Email verification prepared, showing modal.");
+        setModalKey((prev) => prev + 1);
+        setModalVisible(true);
+      } catch (err: any) {
+        console.error("Sign-up error:", JSON.stringify(err, null, 2));
+        const clerkError = err.errors?.[0];
+        if (clerkError) {
+          if (clerkError.code === "form_identifier_exists") {
+            setEmailError("An account with this email already exists");
+          } else {
+            setEmailError(clerkError.message || "An error occurred during sign up");
+          }
+        } else {
+          setEmailError("A network error occurred. Please try again.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      console.log("Validation failed:", { emailErr, passErr });
+    }
+  };
+
+  const onGoogleSignIn = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const { createdSessionId, setActive: setSSOActive } = await startSSOFlow({
+        strategy: "oauth_google",
+      });
+
+      if (createdSessionId && setSSOActive) {
+        await setSSOActive({ session: createdSessionId });
+        router.replace("/");
+      }
+    } catch (err) {
+      console.error("OAuth error", err);
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -219,6 +297,7 @@ export default function SignUp() {
                 <View className="pt-[12px] w-full" style={{ width: "100%" }}>
                   <Pressable
                     onPress={handleSignUp}
+                    disabled={isLoading || !isLoaded}
                     style={({ pressed }) => [
                       styles.buttonShadow,
                       {
@@ -229,18 +308,26 @@ export default function SignUp() {
                         alignItems: "center",
                         justifyContent: "center",
                         transform: [{ scale: pressed ? 0.98 : 1 }],
+                        opacity: (isLoading || !isLoaded) ? 0.7 : 1,
                       }
                     ]}
                   >
-                    <Text
-                      className="text-[#ffffff] text-[16px] font-semibold"
-                      style={{ fontFamily: "Inter", lineHeight: 24 }}
-                    >
-                      Sign Up
-                    </Text>
+                    {isLoading || !isLoaded ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text
+                        className="text-[#ffffff] text-[16px] font-semibold"
+                        style={{ fontFamily: "Inter", lineHeight: 24 }}
+                      >
+                        Sign Up
+                      </Text>
+                    )}
                   </Pressable>
                 </View>
               </View>
+
+              {/* Clerk Captcha */}
+              <View nativeID="clerk-captcha" />
 
               {/* Divider */}
               <View className="flex-row items-center py-[4px] w-full" style={{ width: "100%" }}>
@@ -257,6 +344,8 @@ export default function SignUp() {
               {/* Google Sign In */}
               <View className="w-full" style={{ width: "100%" }}>
                 <Pressable 
+                  onPress={onGoogleSignIn}
+                  disabled={isGoogleLoading}
                   style={({ pressed }) => ({
                     width: "100%",
                     height: 52,
@@ -268,17 +357,24 @@ export default function SignUp() {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 12,
-                    transform: [{ scale: pressed ? 0.98 : 1 }]
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                    opacity: isGoogleLoading ? 0.7 : 1,
                   })}
                 >
-                  <Image
-                    source={images.google}
-                    style={{ width: 20, height: 20 }}
-                    contentFit="contain"
-                  />
-                  <Text className="text-[#12121A] text-[16px]" style={{ fontFamily: "Inter", lineHeight: 24 }}>
-                    Sign up with Google
-                  </Text>
+                  {isGoogleLoading ? (
+                    <ActivityIndicator color="#3525cd" />
+                  ) : (
+                    <>
+                      <Image
+                        source={images.google}
+                        style={{ width: 20, height: 20 }}
+                        contentFit="contain"
+                      />
+                      <Text className="text-[#12121A] text-[16px]" style={{ fontFamily: "Inter", lineHeight: 24 }}>
+                        Sign up with Google
+                      </Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
 
@@ -304,6 +400,7 @@ export default function SignUp() {
       </KeyboardAvoidingView>
 
       <VerificationModal
+        key={modalKey}
         visible={modalVisible}
         email={email}
         onClose={() => setModalVisible(false)}
