@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { useClerk, useSignUp } from "@clerk/expo";
 import { useRouter } from "expo-router";
-import { useSignUp, useClerk } from "@clerk/expo";
+import { useEffect, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
 interface VerificationModalProps {
   visible: boolean;
@@ -42,7 +42,9 @@ function BlinkingCaret() {
   );
 }
 
-function isErrorWithErrors(err: unknown): err is { errors?: { message?: string }[] } {
+function isErrorWithErrors(
+  err: unknown,
+): err is { errors?: { message?: string }[] } {
   return (
     typeof err === "object" &&
     err !== null &&
@@ -62,9 +64,9 @@ export function VerificationModal({
   const [countdown, setCountdown] = useState(30);
   const [showResendFeedback, setShowResendFeedback] = useState(false);
   const [error, setError] = useState("");
-  
+
   const { signUp } = useSignUp();
-  const { setActive } = useClerk();
+  useClerk();
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
   const isLoaded = !!signUp;
@@ -200,43 +202,82 @@ export function VerificationModal({
             style={[styles.cardShadow, { width: "100%", maxWidth: 384 }]}
           >
             {isSuccess ? (
-              <View className="items-center py-[20px] w-full" style={{ width: "100%" }}>
-                <View style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 32,
-                  backgroundColor: "#E8FDF0",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 2,
-                  borderColor: "#22C55E",
-                  marginBottom: 24,
-                }}>
-                  <Text style={{ fontSize: 32, color: "#22C55E", fontWeight: "bold", marginTop: -2 }}>✓</Text>
+              <View
+                className="items-center py-[20px] w-full"
+                style={{ width: "100%" }}
+              >
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: "#E8FDF0",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 2,
+                    borderColor: "#22C55E",
+                    marginBottom: 24,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 32,
+                      color: "#22C55E",
+                      fontWeight: "bold",
+                      marginTop: -2,
+                    }}
+                  >
+                    ✓
+                  </Text>
                 </View>
-                <Text className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight" style={{ fontFamily: "Outfit" }}>
+                <Text
+                  className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight"
+                  style={{ fontFamily: "Outfit" }}
+                >
                   Vault Secured
                 </Text>
-                <Text className="text-[#6C6B7E] text-center text-[14px]" style={{ fontFamily: "Inter", lineHeight: 20 }}>
+                <Text
+                  className="text-[#6C6B7E] text-center text-[14px]"
+                  style={{ fontFamily: "Inter", lineHeight: 20 }}
+                >
                   Decrypted local keys successfully. Opening Zentra...
                 </Text>
               </View>
             ) : isValidating ? (
-              <View className="items-center py-[20px] w-full" style={{ width: "100%" }}>
-                <ActivityIndicator size="large" color="#3525cd" style={{ marginBottom: 24 }} />
-                <Text className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight" style={{ fontFamily: "Outfit" }}>
+              <View
+                className="items-center py-[20px] w-full"
+                style={{ width: "100%" }}
+              >
+                <ActivityIndicator
+                  size="large"
+                  color="#3525cd"
+                  style={{ marginBottom: 24 }}
+                />
+                <Text
+                  className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight"
+                  style={{ fontFamily: "Outfit" }}
+                >
                   Verifying Code
                 </Text>
-                <Text className="text-[#6C6B7E] text-center text-[14px]" style={{ fontFamily: "Inter", lineHeight: 20 }}>
+                <Text
+                  className="text-[#6C6B7E] text-center text-[14px]"
+                  style={{ fontFamily: "Inter", lineHeight: 20 }}
+                >
                   Creating secure on-device credentials...
                 </Text>
               </View>
             ) : (
               <>
-                <Text className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight" style={{ fontFamily: "Outfit" }}>
+                <Text
+                  className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight"
+                  style={{ fontFamily: "Outfit" }}
+                >
                   Check your email
                 </Text>
-                <Text className="text-[#6C6B7E] text-center text-[14px] mb-[32px]" style={{ fontFamily: "Inter", lineHeight: 20 }}>
+                <Text
+                  className="text-[#6C6B7E] text-center text-[14px] mb-[32px]"
+                  style={{ fontFamily: "Inter", lineHeight: 20 }}
+                >
                   {"We've sent a 6-digit verification code to\n"}
                   <Text className="text-[#12121A] font-semibold">{email}</Text>
                 </Text>
@@ -255,7 +296,11 @@ export function VerificationModal({
                         key={index}
                         className="flex-1 aspect-square bg-[#F8F8FC] border rounded-xl items-center justify-center relative"
                         style={{
-                          borderColor: error ? "#EF4444" : (isActive ? "#3525cd" : "#E2E1EC"),
+                          borderColor: error
+                            ? "#EF4444"
+                            : isActive
+                              ? "#3525cd"
+                              : "#E2E1EC",
                           borderWidth: isActive || error ? 2 : 1,
                           height: 48,
                           maxWidth: 48,
@@ -300,8 +345,8 @@ export function VerificationModal({
                 </Pressable>
 
                 {error ? (
-                  <Text 
-                    className="text-[#EF4444] text-[12px] mb-[16px] text-center" 
+                  <Text
+                    className="text-[#EF4444] text-[12px] mb-[16px] text-center"
                     style={{ fontFamily: "Inter" }}
                   >
                     {error}
@@ -309,10 +354,17 @@ export function VerificationModal({
                 ) : null}
 
                 {/* Resend Code Section */}
-                <View className="mb-[16px] items-center justify-center w-full" style={{ width: "100%", minHeight: 48 }}>
+                <View
+                  className="mb-[16px] items-center justify-center w-full"
+                  style={{ width: "100%", minHeight: 48 }}
+                >
                   {countdown > 0 ? (
-                    <Text className="text-[#6C6B7E] text-[14px]" style={{ fontFamily: "Inter" }}>
-                      Resend code in <Text className="font-semibold">{countdown}s</Text>
+                    <Text
+                      className="text-[#6C6B7E] text-[14px]"
+                      style={{ fontFamily: "Inter" }}
+                    >
+                      Resend code in{" "}
+                      <Text className="font-semibold">{countdown}s</Text>
                     </Text>
                   ) : (
                     <View className="items-center" style={{ gap: 4 }}>
@@ -322,12 +374,18 @@ export function VerificationModal({
                           opacity: pressed ? 0.6 : 1,
                         })}
                       >
-                        <Text className="text-[#3525cd] font-semibold text-[14px]" style={{ fontFamily: "Inter" }}>
+                        <Text
+                          className="text-[#3525cd] font-semibold text-[14px]"
+                          style={{ fontFamily: "Inter" }}
+                        >
                           Resend Code
                         </Text>
                       </Pressable>
                       {showResendFeedback && (
-                        <Text className="text-[#22C55E] text-[12px] font-medium" style={{ fontFamily: "Inter" }}>
+                        <Text
+                          className="text-[#22C55E] text-[12px] font-medium"
+                          style={{ fontFamily: "Inter" }}
+                        >
                           Code resent successfully!
                         </Text>
                       )}
@@ -343,7 +401,10 @@ export function VerificationModal({
                     opacity: pressed ? 0.6 : 1,
                   })}
                 >
-                  <Text className="text-[#6C6B7E] font-medium text-[15px]" style={{ fontFamily: "Inter" }}>
+                  <Text
+                    className="text-[#6C6B7E] font-medium text-[15px]"
+                    style={{ fontFamily: "Inter" }}
+                  >
                     Cancel
                   </Text>
                 </Pressable>

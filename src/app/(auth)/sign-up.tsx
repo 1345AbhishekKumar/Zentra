@@ -1,32 +1,32 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import { VerificationModal } from "@/components/VerificationModal";
+import { images } from "@/constants/images";
+import { useSignUp, useSSO } from "@clerk/expo";
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
-import { images } from "@/constants/images";
-import { VerificationModal } from "@/components/VerificationModal";
-import { useSignUp, useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
 interface ClerkErrorJSON {
-  errors: Array<{
+  errors: {
     code?: string;
     message?: string;
     meta?: {
       paramName?: string;
     };
-  }>;
+  }[];
 }
 
 function isClerkError(err: unknown): err is ClerkErrorJSON {
@@ -42,7 +42,7 @@ export default function SignUp() {
   const router = useRouter();
   const { signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
-  
+
   const isLoaded = !!signUp;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -129,7 +129,8 @@ export default function SignUp() {
         if (isClerkError(err)) {
           const clerkError = err.errors?.[0];
           if (clerkError) {
-            const message = clerkError.message || "An error occurred during sign up";
+            const message =
+              clerkError.message || "An error occurred during sign up";
             const code = clerkError.code || "";
             const paramName = clerkError.meta?.paramName || "";
 
@@ -187,7 +188,9 @@ export default function SignUp() {
       console.error("OAuth error", err);
       Alert.alert(
         "Google Sign In Failed",
-        err instanceof Error ? err.message : "An unexpected error occurred during Google sign-in."
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred during Google sign-in.",
       );
     } finally {
       setIsGoogleLoading(false);
@@ -201,17 +204,27 @@ export default function SignUp() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
-        <ScrollView 
-          contentContainerStyle={{ flexGrow: 1, alignItems: "center", justifyContent: "center" }} 
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
           keyboardShouldPersistTaps="handled"
         >
-          <View 
-            className="w-full max-w-md px-[24px] py-[32px] justify-center" 
+          <View
+            className="w-full max-w-md px-[24px] py-[32px] justify-center"
             style={{ width: "100%", maxWidth: 448 }}
           >
-            <View className="flex-col w-full" style={{ gap: 40, width: "100%" }}>
+            <View
+              className="flex-col w-full"
+              style={{ gap: 40, width: "100%" }}
+            >
               {/* Header Section */}
-              <View className="items-center w-full" style={{ gap: 8, width: "100%" }}>
+              <View
+                className="items-center w-full"
+                style={{ gap: 8, width: "100%" }}
+              >
                 <View className="flex-row justify-center mb-[2px]">
                   <Image
                     source={images.logo}
@@ -221,7 +234,10 @@ export default function SignUp() {
                 </View>
                 <Text
                   className="text-[#12121A] text-[44px] italic tracking-[-0.02em]"
-                  style={{ fontFamily: "PlayfairDisplayItalic", lineHeight: 48 }}
+                  style={{
+                    fontFamily: "PlayfairDisplayItalic",
+                    lineHeight: 48,
+                  }}
                 >
                   Zentra
                 </Text>
@@ -234,9 +250,15 @@ export default function SignUp() {
               </View>
 
               {/* Form Section */}
-              <View className="flex-col w-full" style={{ gap: 20, width: "100%" }}>
+              <View
+                className="flex-col w-full"
+                style={{ gap: 20, width: "100%" }}
+              >
                 {/* Email Field */}
-                <View className="flex-col w-full" style={{ gap: 6, width: "100%" }}>
+                <View
+                  className="flex-col w-full"
+                  style={{ gap: 6, width: "100%" }}
+                >
                   <Text
                     className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
                     style={{ fontFamily: "Inter", lineHeight: 14.4 }}
@@ -259,20 +281,25 @@ export default function SignUp() {
                       autoCorrect={false}
                       selectionColor="#3525cd"
                       className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
-                      style={{ 
-                        fontFamily: "Inter", 
-                        lineHeight: 24, 
+                      style={{
+                        fontFamily: "Inter",
+                        lineHeight: 24,
                         width: "100%",
-                        borderColor: emailError ? "#EF4444" : (isEmailFocused ? "#3525cd" : "#E2E1EC"),
+                        borderColor: emailError
+                          ? "#EF4444"
+                          : isEmailFocused
+                            ? "#3525cd"
+                            : "#E2E1EC",
                         borderWidth: emailError || isEmailFocused ? 2 : 1,
                         paddingVertical: emailError || isEmailFocused ? 11 : 12,
-                        paddingHorizontal: emailError || isEmailFocused ? 15 : 16,
+                        paddingHorizontal:
+                          emailError || isEmailFocused ? 15 : 16,
                       }}
                     />
                   </View>
                   {emailError ? (
-                    <Text 
-                      className="text-[#EF4444] text-[12px] mt-0.5" 
+                    <Text
+                      className="text-[#EF4444] text-[12px] mt-0.5"
                       style={{ fontFamily: "Inter", lineHeight: 16 }}
                     >
                       {emailError}
@@ -281,14 +308,20 @@ export default function SignUp() {
                 </View>
 
                 {/* Password Field */}
-                <View className="flex-col w-full" style={{ gap: 6, width: "100%" }}>
+                <View
+                  className="flex-col w-full"
+                  style={{ gap: 6, width: "100%" }}
+                >
                   <Text
                     className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
                     style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                   >
                     Password
                   </Text>
-                  <View className="relative w-full justify-center" style={{ width: "100%" }}>
+                  <View
+                    className="relative w-full justify-center"
+                    style={{ width: "100%" }}
+                  >
                     <TextInput
                       placeholder="••••••••"
                       placeholderTextColor="#A3A3A3"
@@ -302,19 +335,30 @@ export default function SignUp() {
                       secureTextEntry={!showPassword}
                       selectionColor="#3525cd"
                       className={`w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] ${
-                        showPassword ? "text-[16px] py-[12px]" : "text-[16px] py-[12px]"
+                        showPassword
+                          ? "text-[16px] py-[12px]"
+                          : "text-[16px] py-[12px]"
                       }`}
-                      style={{ 
-                        fontFamily: "Inter", 
+                      style={{
+                        fontFamily: "Inter",
                         width: "100%",
                         letterSpacing: showPassword ? 0 : 4,
-                        borderColor: passwordError ? "#EF4444" : (isPasswordFocused ? "#3525cd" : "#E2E1EC"),
+                        borderColor: passwordError
+                          ? "#EF4444"
+                          : isPasswordFocused
+                            ? "#3525cd"
+                            : "#E2E1EC",
                         borderWidth: passwordError || isPasswordFocused ? 2 : 1,
-                        paddingLeft: passwordError || isPasswordFocused ? 15 : 16,
+                        paddingLeft:
+                          passwordError || isPasswordFocused ? 15 : 16,
                         paddingRight: 56,
-                        paddingVertical: showPassword 
-                          ? (passwordError || isPasswordFocused ? 11 : 12) 
-                          : (passwordError || isPasswordFocused ? 9 : 10),
+                        paddingVertical: showPassword
+                          ? passwordError || isPasswordFocused
+                            ? 11
+                            : 12
+                          : passwordError || isPasswordFocused
+                            ? 9
+                            : 10,
                       }}
                     />
                     <Pressable
@@ -327,7 +371,7 @@ export default function SignUp() {
                         opacity: pressed ? 0.6 : 1,
                       })}
                     >
-                      <Text 
+                      <Text
                         className="text-[#3525cd] text-[10px] font-semibold uppercase tracking-wider"
                         style={{ fontFamily: "Inter" }}
                       >
@@ -336,8 +380,8 @@ export default function SignUp() {
                     </Pressable>
                   </View>
                   {passwordError ? (
-                    <Text 
-                      className="text-[#EF4444] text-[12px] mt-[2px]" 
+                    <Text
+                      className="text-[#EF4444] text-[12px] mt-[2px]"
                       style={{ fontFamily: "Inter", lineHeight: 16 }}
                     >
                       {passwordError}
@@ -360,8 +404,8 @@ export default function SignUp() {
                         alignItems: "center",
                         justifyContent: "center",
                         transform: [{ scale: pressed ? 0.98 : 1 }],
-                        opacity: (isLoading || !isLoaded) ? 0.7 : 1,
-                      }
+                        opacity: isLoading || !isLoaded ? 0.7 : 1,
+                      },
                     ]}
                   >
                     {isLoading || !isLoaded ? (
@@ -382,7 +426,10 @@ export default function SignUp() {
               <View nativeID="clerk-captcha" />
 
               {/* Divider */}
-              <View className="flex-row items-center py-[4px] w-full" style={{ width: "100%" }}>
+              <View
+                className="flex-row items-center py-[4px] w-full"
+                style={{ width: "100%" }}
+              >
                 <View className="flex-1 border-t border-[#EAEAEF]" />
                 <Text
                   className="flex-shrink-0 mx-[16px] text-[#6C6B7E] text-[12px] font-medium uppercase tracking-wider"
@@ -395,7 +442,7 @@ export default function SignUp() {
 
               {/* Google Sign In */}
               <View className="w-full" style={{ width: "100%" }}>
-                <Pressable 
+                <Pressable
                   onPress={onGoogleSignIn}
                   disabled={isGoogleLoading}
                   style={({ pressed }) => ({
@@ -422,7 +469,10 @@ export default function SignUp() {
                         style={{ width: 20, height: 20 }}
                         contentFit="contain"
                       />
-                      <Text className="text-[#12121A] text-[16px]" style={{ fontFamily: "Inter", lineHeight: 24 }}>
+                      <Text
+                        className="text-[#12121A] text-[16px]"
+                        style={{ fontFamily: "Inter", lineHeight: 24 }}
+                      >
                         Sign up with Google
                       </Text>
                     </>
@@ -431,7 +481,10 @@ export default function SignUp() {
               </View>
 
               {/* Footer Link */}
-              <View className="flex-row justify-center pt-[8px] w-full" style={{ width: "100%" }}>
+              <View
+                className="flex-row justify-center pt-[8px] w-full"
+                style={{ width: "100%" }}
+              >
                 <Text
                   className="text-[#6C6B7E] text-[16px]"
                   style={{ fontFamily: "Inter", lineHeight: 24 }}
@@ -439,8 +492,13 @@ export default function SignUp() {
                   Already have an account?{" "}
                 </Text>
                 <Link href="/sign-in" asChild>
-                  <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-                    <Text className="text-[#3525cd] text-[16px] font-semibold" style={{ fontFamily: "Inter", lineHeight: 24 }}>
+                  <Pressable
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                  >
+                    <Text
+                      className="text-[#3525cd] text-[16px] font-semibold"
+                      style={{ fontFamily: "Inter", lineHeight: 24 }}
+                    >
                       Log In
                     </Text>
                   </Pressable>
@@ -476,6 +534,6 @@ const styles = StyleSheet.create({
       web: {
         boxShadow: "0 8px 24px rgba(53, 37, 205, 0.2)",
       } as any,
-    })
-  }
+    }),
+  },
 });
