@@ -227,6 +227,7 @@ When building a feature:
 - Never expose secret keys in client code.
 - Clerk publishable key goes in `.env` only — never hardcoded.
 - No other external API keys should exist in this project.
+- Do not read the `.env` file directly under any circumstances as it may expose security credentials or configurations to log/context outputs. Rely strictly on system/process environments managed at the client runtime.
 
 --
 

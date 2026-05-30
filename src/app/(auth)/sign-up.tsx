@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
@@ -18,9 +19,28 @@ import { VerificationModal } from "@/components/VerificationModal";
 import { useSignUp, useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 
+interface ClerkErrorJSON {
+  errors: Array<{
+    code?: string;
+    message?: string;
+    meta?: {
+      paramName?: string;
+    };
+  }>;
+}
+
+function isClerkError(err: unknown): err is ClerkErrorJSON {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "errors" in err &&
+    Array.isArray((err as any).errors)
+  );
+}
+
 export default function SignUp() {
   const router = useRouter();
-  const { signUp, fetchStatus } = useSignUp();
+  const { signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
   
   const isLoaded = !!signUp;
@@ -104,14 +124,42 @@ export default function SignUp() {
         console.log("Email verification prepared, showing modal.");
         setModalKey((prev) => prev + 1);
         setModalVisible(true);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Sign-up error:", JSON.stringify(err, null, 2));
-        const clerkError = err.errors?.[0];
-        if (clerkError) {
-          if (clerkError.code === "form_identifier_exists") {
-            setEmailError("An account with this email already exists");
+        if (isClerkError(err)) {
+          const clerkError = err.errors?.[0];
+          if (clerkError) {
+            const message = clerkError.message || "An error occurred during sign up";
+            const code = clerkError.code || "";
+            const paramName = clerkError.meta?.paramName || "";
+
+            const isPasswordError =
+              code.toLowerCase().includes("password") ||
+              message.toLowerCase().includes("password") ||
+              paramName === "password";
+
+            const isEmailError =
+              code.toLowerCase().includes("identifier") ||
+              code.toLowerCase().includes("email") ||
+              message.toLowerCase().includes("email") ||
+              message.toLowerCase().includes("identifier") ||
+              message.toLowerCase().includes("account") ||
+              paramName === "identifier" ||
+              paramName === "email_address";
+
+            if (isPasswordError) {
+              setPasswordError(message);
+            } else if (isEmailError) {
+              if (code === "form_identifier_exists") {
+                setEmailError("An account with this email already exists");
+              } else {
+                setEmailError(message);
+              }
+            } else {
+              setEmailError(message);
+            }
           } else {
-            setEmailError(clerkError.message || "An error occurred during sign up");
+            setEmailError("A network error occurred. Please try again.");
           }
         } else {
           setEmailError("A network error occurred. Please try again.");
@@ -137,6 +185,10 @@ export default function SignUp() {
       }
     } catch (err) {
       console.error("OAuth error", err);
+      Alert.alert(
+        "Google Sign In Failed",
+        err instanceof Error ? err.message : "An unexpected error occurred during Google sign-in."
+      );
     } finally {
       setIsGoogleLoading(false);
     }

@@ -52,6 +52,11 @@ Integrate Clerk SDK provider and token cache.
 - Updated root index route (`src/app/index.tsx`) to act as a secure gateway, redirecting unauthenticated users to sign-in and showing a dashboard placeholder for authenticated users.
 - Resolved Clerk Core 3 SDK integration issues across `sign-in.tsx`, `sign-up.tsx`, and `VerificationModal.tsx` by updating hook destructuring, creating custom image asset TypeScript declarations, and using the correct `.verifications` and `.finalize` API flows.
 - Successfully verified that all TypeScript compilation issues are resolved in the project (`tsc --noEmit` passes with 0 errors).
+- Resolved multiple configuration, dependency locking, stylesheet styling, component code quality, and strict TypeScript compilation errors across layout, authentication screens, and modals.
+- Wired up the "Forgot?" link in the Sign In screen (`sign-in.tsx`) to redirect users to `/forgot-password`.
+- Refactored `forgot-password.tsx` to use the modern Clerk v3 SDK `resetPasswordEmailCode` helper API instead of the legacy `attemptFirstFactor` method.
+- Re-architected the Forgot Password UI/UX into a 3-step sequence: Send Code -> Verify Code -> Set New Password.
+- Integrated a premium countdown-based resend OTP timer on the code verification step.
 
 ## In Progress
 

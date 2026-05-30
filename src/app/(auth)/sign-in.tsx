@@ -10,12 +10,32 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
 import { images } from "@/constants/images";
 import { useClerk, useSignIn, useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
+
+interface ClerkErrorJSON {
+  errors: Array<{
+    code?: string;
+    message?: string;
+    meta?: {
+      paramName?: string;
+    };
+  }>;
+}
+
+function isClerkError(err: unknown): err is ClerkErrorJSON {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "errors" in err &&
+    Array.isArray((err as any).errors)
+  );
+}
 
 export default function SignIn() {
   const router = useRouter();
@@ -73,7 +93,7 @@ export default function SignIn() {
 
   const handleSignIn = async () => {
     console.log("handleSignIn called, isLoaded:", isLoaded);
-    if (!isLoaded) return;
+    if (!isLoaded || !signIn) return;
 
     const emailErr = validateEmail(email);
     const passErr = validatePassword(password);
@@ -90,23 +110,53 @@ export default function SignIn() {
           password,
         });
 
-        console.log("Sign-in result status:", result.status);
-        if (result.status === "complete") {
-          await setActive({ session: result.createdSessionId });
+        if (result.error) {
+          throw { errors: [result.error] };
+        }
+
+        console.log("Sign-in result status:", signIn.status);
+        if (signIn.status === "complete") {
+          await setActive({ session: signIn.createdSessionId });
           router.replace("/");
         } else {
-          console.error("Sign-in incomplete", result);
+          console.error("Sign-in incomplete", signIn);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Sign-in error:", JSON.stringify(err, null, 2));
-        const clerkError = err.errors?.[0];
-        if (clerkError) {
-          if (clerkError.code === "form_identifier_not_found") {
-            setEmailError("No account found with this email");
-          } else if (clerkError.code === "form_password_incorrect") {
-            setPasswordError("Incorrect password");
+        if (isClerkError(err)) {
+          const clerkError = err.errors?.[0];
+          if (clerkError) {
+            const message = clerkError.message || "An error occurred";
+            const code = clerkError.code || "";
+            const paramName = clerkError.meta?.paramName || "";
+
+            const isPasswordError =
+              code.toLowerCase().includes("password") ||
+              message.toLowerCase().includes("password") ||
+              paramName === "password";
+
+            const isEmailError =
+              code.toLowerCase().includes("identifier") ||
+              code.toLowerCase().includes("email") ||
+              message.toLowerCase().includes("email") ||
+              message.toLowerCase().includes("identifier") ||
+              message.toLowerCase().includes("account") ||
+              paramName === "identifier" ||
+              paramName === "email_address";
+
+            if (isPasswordError) {
+              setPasswordError(message);
+            } else if (isEmailError) {
+              if (code === "form_identifier_not_found") {
+                setEmailError("No account found with this email");
+              } else {
+                setEmailError(message);
+              }
+            } else {
+              setEmailError(message);
+            }
           } else {
-            setEmailError(clerkError.message || "An error occurred");
+            setEmailError("A network error occurred. Please try again.");
           }
         } else {
           setEmailError("A network error occurred. Please try again.");
@@ -132,6 +182,10 @@ export default function SignIn() {
       }
     } catch (err) {
       console.error("OAuth error", err);
+      Alert.alert(
+        "Google Sign In Failed",
+        err instanceof Error ? err.message : "An unexpected error occurred during Google sign-in."
+      );
     } finally {
       setIsGoogleLoading(false);
     }
@@ -232,14 +286,16 @@ export default function SignIn() {
                     >
                       Password
                     </Text>
-                    <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-                      <Text
-                        className="text-[#3525cd] text-[10px] font-semibold uppercase tracking-wider"
-                        style={{ fontFamily: "Inter", lineHeight: 14.4 }}
-                      >
-                        Forgot?
-                      </Text>
-                    </Pressable>
+                    <Link href="/forgot-password" asChild>
+                      <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
+                        <Text
+                          className="text-[#3525cd] text-[10px] font-semibold uppercase tracking-wider"
+                          style={{ fontFamily: "Inter", lineHeight: 14.4 }}
+                        >
+                          Forgot?
+                        </Text>
+                      </Pressable>
+                    </Link>
                   </View>
                   <View className="relative w-full justify-center" style={{ width: "100%" }}>
                     <TextInput

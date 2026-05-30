@@ -10,7 +10,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter } from "expo-router";
 import { useSignUp, useClerk } from "@clerk/expo";
 
 interface VerificationModalProps {
@@ -42,6 +42,15 @@ function BlinkingCaret() {
   );
 }
 
+function isErrorWithErrors(err: unknown): err is { errors?: { message?: string }[] } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "errors" in err &&
+    Array.isArray((err as any).errors)
+  );
+}
+
 export function VerificationModal({
   visible,
   email,
@@ -54,14 +63,27 @@ export function VerificationModal({
   const [showResendFeedback, setShowResendFeedback] = useState(false);
   const [error, setError] = useState("");
   
-  const { signUp, fetchStatus } = useSignUp();
+  const { signUp } = useSignUp();
   const { setActive } = useClerk();
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
   const isLoaded = !!signUp;
 
+  const wasVisible = useRef(false);
+
   useEffect(() => {
-    if (visible && countdown > 0 && !isValidating && !isSuccess) {
+    if (!visible) {
+      wasVisible.current = false;
+      return;
+    }
+
+    if (!wasVisible.current) {
+      wasVisible.current = true;
+      setCountdown(30);
+      return;
+    }
+
+    if (countdown > 0 && !isValidating && !isSuccess) {
       const timer = setTimeout(() => {
         setCountdown((c) => c - 1);
       }, 1000);
@@ -103,9 +125,14 @@ export function VerificationModal({
           setError("Verification incomplete. Please try again.");
           setIsValidating(false);
         }
-      } catch (err: any) {
-        console.error(JSON.stringify(err, null, 2));
-        setError(err.errors?.[0]?.message || "Invalid verification code");
+      } catch (err: unknown) {
+        if (isErrorWithErrors(err)) {
+          console.error("Verification error:", JSON.stringify(err, null, 2));
+          setError(err.errors?.[0]?.message || "Invalid verification code");
+        } else {
+          console.error("Verification error:", String(err));
+          setError("Invalid verification code");
+        }
         setIsValidating(false);
         setCode("");
         inputRef.current?.focus();
@@ -124,8 +151,16 @@ export function VerificationModal({
       setTimeout(() => {
         setShowResendFeedback(false);
       }, 2500);
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Resend error:", err.message);
+      } else {
+        try {
+          console.error("Resend error:", JSON.stringify(err));
+        } catch {
+          console.error("Resend error:", String(err));
+        }
+      }
       setError("Failed to resend code");
     }
   };
@@ -145,7 +180,6 @@ export function VerificationModal({
         }, 150);
       }}
     >
-      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1, width: "100%", height: "100%" }}
