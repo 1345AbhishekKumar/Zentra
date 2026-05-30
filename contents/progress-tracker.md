@@ -4,14 +4,17 @@ Update this file whenever the current phase, active feature , or implementation 
 
 ## Current Phase
 
-Authentication integration.
+Core functionality implementation (Local Documents & Notifications).
 
 ## Current Goal
 
-Integrate Clerk SDK provider and token cache.
+Implement local Document CRUD and file system integration.
 
 ## Completed
 
+- **Feature 5 (TypeScript Types)**: Defined shared TypeScript interfaces and types for documents, notifications, and user models.
+- **Feature 4 (Real Clerk Auth)**: Successfully integrated Clerk SDK for real authentication, replacing all mock flows.
+- **Feature 3 (Auth UI)**: Built the Sign Up, Sign In, and Verification UI matching the Zentra/Memora light-theme design.
 - Set up NativeWind v5 and Tailwind CSS v4 in Expo App.
 - Created `postcss.config.mjs` and `src/global.css`.
 - Configured `metro.config.js` with `withNativewind`.
@@ -76,6 +79,8 @@ Integrate Clerk SDK provider and token cache.
 
 ## Session Notes
 
+- **Feature 5 (TypeScript Types)**: Created modular type definitions in `src/types/` (`document.ts`, `notification.ts`, `user.ts`, `index.ts`) matching requirements exactly, ensuring stable type safety for all upcoming features.
+- **Feature 4 (Real Clerk Auth)**: Successfully migrated from mock authentication to real Clerk SDK integration. Implemented full Sign Up, Sign In, and Forgot Password flows. Integrated Google SSO using `useSSO`. Wired up real email verification in the `VerificationModal`. Fixed all Clerk Core 3 SDK compatibility issues and ensured 100% TypeScript type safety across the auth surface.
 - **Feature 3 (Auth UI)**: Built the Sign Up and Sign In screens entirely locally based on the Zentra design image. Created a custom `VerificationModal` with a 6-digit number pad for email validation. All UI styling adheres strictly to the existing NativeWind setup, with inline style overrides specifically for custom font families (`Outfit` and `Inter`) to ensure accurate rendering.
 - **Redesign**: Transitioned Auth routes to a light theme inspired by `code-design.md` (Memora template). Sign In includes both Email and Password fields. Sign Up focuses on Email-only input with a verification modal popup matching the new visual language (soft borders, `#3525cd` buttons).
 - **Clerk**: Added `ClerkProvider` + token cache setup for Expo; publishable key expected via `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
