@@ -1,19 +1,14 @@
-import React from "react";
-import {
-  ScrollView,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
-import { useDocumentStore } from "@/store/documentStore";
-import { ZentraDocument } from "@/types";
-import { formatDate } from "@/lib/date";
-import { colors } from "@/theme/tokens";
 import DashboardHeader from "@/components/DashboardHeader";
-import { parseISO, isToday, isYesterday } from "date-fns";
+import EmptyState from "@/components/EmptyState";
+import { formatDate } from "@/lib/date";
+import { useDocumentStore } from "@/store/documentStore";
+import { colors } from "@/theme/tokens";
+import { ZentraDocument } from "@/types";
+import { Feather } from "@expo/vector-icons";
+import { isToday, isYesterday, parseISO } from "date-fns";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 // ---------------------------------------------------------------------------
 // Icon/color mapping by document name, then file type, then category
@@ -29,11 +24,19 @@ interface DocVisuals {
 const NAME_RULES: { match: string; visuals: DocVisuals }[] = [
   {
     match: "passport",
-    visuals: { iconName: "globe", iconColor: colors.accent, bgColor: "#EEF2FF" },
+    visuals: {
+      iconName: "globe",
+      iconColor: colors.accent,
+      bgColor: "#EEF2FF",
+    },
   },
   {
     match: "insurance",
-    visuals: { iconName: "shield", iconColor: colors.accent, bgColor: "#EEF2FF" },
+    visuals: {
+      iconName: "shield",
+      iconColor: colors.accent,
+      bgColor: "#EEF2FF",
+    },
   },
   {
     match: "certificate",
@@ -41,25 +44,45 @@ const NAME_RULES: { match: string; visuals: DocVisuals }[] = [
   },
   {
     match: "license",
-    visuals: { iconName: "credit-card", iconColor: "#3B82F6", bgColor: "#EFF6FF" },
+    visuals: {
+      iconName: "credit-card",
+      iconColor: "#3B82F6",
+      bgColor: "#EFF6FF",
+    },
   },
   {
     match: "driving",
-    visuals: { iconName: "credit-card", iconColor: "#3B82F6", bgColor: "#EFF6FF" },
+    visuals: {
+      iconName: "credit-card",
+      iconColor: "#3B82F6",
+      bgColor: "#EFF6FF",
+    },
   },
 ];
 
-function getDocVisuals(name: string, _category: string, fileType: string): DocVisuals {
+function getDocVisuals(
+  name: string,
+  _category: string,
+  fileType: string,
+): DocVisuals {
   const lower = name.toLowerCase();
   for (const rule of NAME_RULES) {
     if (lower.includes(rule.match)) return rule.visuals;
   }
   if (fileType === "pdf")
-    return { iconName: "file-text", iconColor: colors.danger, bgColor: "#FEF2F2" };
+    return {
+      iconName: "file-text",
+      iconColor: colors.danger,
+      bgColor: "#FEF2F2",
+    };
   if (fileType === "image")
     return { iconName: "image", iconColor: colors.success, bgColor: "#F0FDF4" };
   if (_category === "Finance")
-    return { iconName: "dollar-sign", iconColor: "#10B981", bgColor: "#ECFDF5" };
+    return {
+      iconName: "dollar-sign",
+      iconColor: "#10B981",
+      bgColor: "#ECFDF5",
+    };
   return { iconName: "file", iconColor: colors.secondary, bgColor: "#F5F5F5" };
 }
 
@@ -90,7 +113,7 @@ function QuickAccessCard({
   const { iconName, iconColor, bgColor } = getDocVisuals(
     doc.name,
     doc.category,
-    doc.fileType
+    doc.fileType,
   );
   const label = doc.name.replace(/\.[^/.]+$/, "");
   const meta = `${doc.fileType.toUpperCase()} • ${doc.sizeLabel || "1.0 MB"}`;
@@ -135,7 +158,7 @@ function RecentDocRow({
   const { iconName, iconColor, bgColor } = getDocVisuals(
     doc.name,
     doc.category,
-    doc.fileType
+    doc.fileType,
   );
   const meta = `${formatAddedDate(doc.createdAt)} • ${doc.sizeLabel || "1.0 MB"}`;
 
@@ -181,14 +204,22 @@ export default function HomeScreen() {
   const { documents, addDocument } = useDocumentStore();
 
   const sorted = [...documents].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt)
+    b.createdAt.localeCompare(a.createdAt),
   );
 
-  const quickAccessDocs = sorted.slice(0, 4);
   const recentDocs = sorted.slice(0, 4);
+  const quickAccessDocs = sorted
+    .filter(
+      (doc) =>
+        doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
+    )
+    .slice(0, 4);
+
+  const canSeedDemo = __DEV__;
 
   // Seed demo data for verification
-  const seedDemoData = () => {
+  const seedDemoData = React.useCallback(() => {
+    if (!canSeedDemo) return;
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
     const mocks: ZentraDocument[] = [
@@ -281,7 +312,7 @@ export default function HomeScreen() {
     mocks.forEach((m) => {
       if (!documents.some((d) => d.id === m.id)) addDocument(m);
     });
-  };
+  }, [canSeedDemo, documents, addDocument]);
 
   // ------------------------------------------------------------------
   // Render
@@ -323,41 +354,28 @@ export default function HomeScreen() {
             // ---------------------------------------------------------------
             // Empty state
             // ---------------------------------------------------------------
-            <View className="px-6 items-center mt-12">
-              <View
-                className="w-24 h-24 rounded-full bg-soft-accent items-center justify-center mb-8"
-              >
-                <Feather name="file-plus" size={40} color={colors.accent} />
-              </View>
-
-              <Text className="text-h2 text-primary text-center">
-                Your vault is empty
-              </Text>
-              <Text className="text-body-md text-secondary text-center mt-2 px-4 leading-5">
-                {"Add your first document to start tracking expiration dates and get timely alerts."}
-              </Text>
-
-              <View className="w-full mt-10 gap-3">
-                <Pressable
-                  onPress={() => router.push("/add-document" as never)}
-                  accessibilityRole="button"
-                  className="w-full h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-90"
-                  style={({ pressed }) => [pressed && styles.pressedScale]}
-                >
-                  <Text className="text-button text-white">Add Document</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={seedDemoData}
-                  accessibilityRole="button"
-                  className="w-full h-[52px] bg-surface border border-border rounded-xl items-center justify-center active:bg-background"
-                  style={({ pressed }) => [pressed && styles.pressedScale]}
-                >
-                  <Text className="text-button text-accent">
-                    Load Demo Documents
-                  </Text>
-                </Pressable>
-              </View>
+            <View className="px-6 pb-12">
+              <EmptyState
+                icon="document-text-outline"
+                title="No documents yet"
+                message="Add your first document to get started"
+                actionLabel="Add Document"
+                onAction={() => router.push("/add-document" as never)}
+              />
+              {canSeedDemo && (
+                <View className="px-6 -mt-2">
+                  <Pressable
+                    onPress={seedDemoData}
+                    accessibilityRole="button"
+                    className="w-full h-[52px] bg-surface border border-border rounded-xl items-center justify-center active:bg-background"
+                    style={({ pressed }) => [pressed && styles.pressedScale]}
+                  >
+                    <Text className="text-button text-accent font-semibold">
+                      Load Demo Documents
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           ) : (
             // ---------------------------------------------------------------
@@ -365,40 +383,42 @@ export default function HomeScreen() {
             // ---------------------------------------------------------------
             <>
               {/* Quick Access */}
-              <View className="mb-8">
-                <View className="flex-row justify-between items-center px-6 mb-4">
-                  <Text className="text-h2 text-primary">Quick Access</Text>
-                  <Pressable
-                    onPress={() => router.navigate("/(tabs)/documents")}
-                    accessibilityRole="link"
-                    hitSlop={8}
-                    className="active:opacity-70"
-                  >
-                    <Text className="text-body-md text-accent font-semibold">
-                      See all
-                    </Text>
-                  </Pressable>
-                </View>
+              {quickAccessDocs.length > 0 && (
+                <View className="mb-8">
+                  <View className="flex-row justify-between items-center px-6 mb-4">
+                    <Text className="text-h2 text-primary">Quick Access</Text>
+                    <Pressable
+                      onPress={() => router.navigate("/(tabs)/documents")}
+                      accessibilityRole="link"
+                      hitSlop={8}
+                      className="active:opacity-70"
+                    >
+                      <Text className="text-body-md text-accent font-semibold">
+                        See all
+                      </Text>
+                    </Pressable>
+                  </View>
 
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: 24 }}
-                >
-                  {quickAccessDocs.map((doc) => (
-                    <QuickAccessCard
-                      key={doc.id}
-                      doc={doc}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/document-details",
-                          params: { id: doc.id },
-                        } as never)
-                      }
-                    />
-                  ))}
-                </ScrollView>
-              </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 24 }}
+                  >
+                    {quickAccessDocs.map((doc) => (
+                      <QuickAccessCard
+                        key={doc.id}
+                        doc={doc}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/document/[id]",
+                            params: { id: doc.id },
+                          } as never)
+                        }
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
 
               {/* Recent Documents */}
               <View className="px-6 mb-6">
@@ -417,7 +437,7 @@ export default function HomeScreen() {
                       isLast={i === recentDocs.length - 1}
                       onPress={() =>
                         router.push({
-                          pathname: "/document-details",
+                          pathname: "/document/[id]",
                           params: { id: doc.id },
                         } as never)
                       }
@@ -436,7 +456,9 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Add new document"
             className="floating-action-button active:opacity-90"
-            style={({ pressed }) => [pressed && { transform: [{ scale: 0.94 }] }]}
+            style={({ pressed }) => [
+              pressed && { transform: [{ scale: 0.94 }] },
+            ]}
           >
             <Feather name="plus" size={26} color="#FFFFFF" />
           </Pressable>

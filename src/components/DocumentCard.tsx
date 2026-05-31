@@ -1,11 +1,11 @@
-import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import { ZentraDocument } from "@/types";
-import { colors } from "@/theme/tokens";
 import { formatDate } from "@/lib/date";
+import { colors } from "@/theme/tokens";
+import { ZentraDocument } from "@/types";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { isToday, isYesterday, parseISO } from "date-fns";
+import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import ExpiryBadge from "./ExpiryBadge";
-import { parseISO, isToday, isYesterday } from "date-fns";
 
 interface DocumentCardProps {
   doc: ZentraDocument;
@@ -92,20 +92,23 @@ export default function DocumentCard({
           <Pressable
             onPress={onFavoritePress}
             hitSlop={8}
-            accessibilityLabel={doc.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            accessibilityLabel={
+              doc.isFavorite ? "Remove from favorites" : "Add to favorites"
+            }
             className="w-8 h-8 rounded-full items-center justify-center bg-transparent active:bg-border/20"
           >
-            <Feather
-              name="star"
+            <Ionicons
+              name={doc.isFavorite ? "star" : "star-outline"}
               size={18}
-              color={doc.isFavorite ? "#F59E0B" : colors.secondary}
-              className={doc.isFavorite ? "fill-[#F59E0B]" : ""}
-              style={doc.isFavorite ? { transform: [{ scale: 1.05 }] } : undefined}
+              color={doc.isFavorite ? colors.warning : colors.secondary}
             />
           </Pressable>
         </View>
 
-        <Text numberOfLines={1} className="text-body-lg text-primary font-semibold mb-1">
+        <Text
+          numberOfLines={1}
+          className="text-body-lg text-primary font-semibold mb-1"
+        >
           {doc.name}
         </Text>
 
@@ -136,12 +139,15 @@ export default function DocumentCard({
       </View>
 
       <View className="flex-1 ml-3 mr-2">
-        <Text numberOfLines={1} className="text-body-lg text-primary font-medium">
+        <Text
+          numberOfLines={1}
+          className="text-body-lg text-primary font-medium"
+        >
           {doc.name}
         </Text>
         <View className="flex-row items-center flex-wrap gap-2 mt-0.5">
           <Text className="text-caption text-secondary">
-            {sizeStr}  •  {dateStr}
+            {sizeStr} • {dateStr}
           </Text>
           <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={true} />
         </View>
@@ -150,14 +156,15 @@ export default function DocumentCard({
       <Pressable
         onPress={onFavoritePress}
         hitSlop={12}
-        accessibilityLabel={doc.isFavorite ? "Remove from favorites" : "Add to favorites"}
+        accessibilityLabel={
+          doc.isFavorite ? "Remove from favorites" : "Add to favorites"
+        }
         className="w-9 h-9 rounded-full items-center justify-center active:bg-border/20"
       >
-        <Feather
-          name="star"
+        <Ionicons
+          name={doc.isFavorite ? "star" : "star-outline"}
           size={20}
-          color={doc.isFavorite ? "#F59E0B" : "#B3B3B3"}
-          className={doc.isFavorite ? "fill-[#F59E0B]" : ""}
+          color={doc.isFavorite ? colors.warning : colors.secondary}
         />
       </Pressable>
     </Pressable>

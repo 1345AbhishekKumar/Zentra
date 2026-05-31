@@ -10,22 +10,23 @@ Build the Add Document screen (`app/add-document.tsx`) and `AddDocumentForm` com
 
 2. Create `components/AddDocumentForm.tsx` with the following fields:
 
-   | Field | Input type | Notes |
-   |---|---|---|
-   | Document Name | Text input | Required. e.g. "Passport.pdf" |
-   | Category | Picker / segmented control | Personal, Work, Finance, Health, Other |
-   | File Type | Picker | PDF, Image, Doc, Other |
-   | Expiry Date | Date picker | Use a simple text input with "YYYY-MM-DD" format for now (a proper date picker component can be added in a future polish pass) |
-   | Size Label | Text input | Optional. e.g. "2.4 MB" — display only |
-   | Notes | Multiline text input | Optional |
-   | Notifications | Toggle switch | Default: on. Maps to `notificationsEnabled` on the document |
+   | Field         | Input type                 | Notes                                                                                                                          |
+   | ------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+   | Document Name | Text input                 | Required. e.g. "Passport.pdf"                                                                                                  |
+   | Category      | Picker / segmented control | Personal, Work, Finance, Health, Other                                                                                         |
+   | File Type     | Picker                     | PDF, Image, Doc, Other                                                                                                         |
+   | Expiry Date   | Date picker                | Use a simple text input with "YYYY-MM-DD" format for now (a proper date picker component can be added in a future polish pass) |
+   | Size Label    | Text input                 | Optional. e.g. "2.4 MB" — display only                                                                                         |
+   | Notes         | Multiline text input       | Optional                                                                                                                       |
+   | Notifications | Toggle switch              | Default: on. Maps to `notificationsEnabled` on the document                                                                    |
 
 3. On submit:
    - Validate that Document Name and Expiry Date are filled
    - Generate a UUID for `id` using `crypto.randomUUID()` or a simple timestamp-based ID
    - Set `createdAt` and `updatedAt` to `new Date().toISOString()`
    - Call `addDocument(newDoc)` from `useDocumentStore`
-   - If `notificationsEnabled` is true AND global notifications are enabled, call `scheduleDocumentNotifications(newDoc, notificationSettings.advanceNoticeDays)` from `lib/notifications.ts`
+   - If `notificationsEnabled` is true AND `notificationSettings.globalEnabled` is true, call `scheduleDocumentNotifications(newDoc, notificationSettings.advanceNoticeDays)` from `lib/notifications.ts`
+   - When `updateDocument` is used and the incoming `expiryDate` differs from the stored one, update `updatedAt` and persist the change first, then if `notificationsEnabled` is true and `notificationSettings.globalEnabled` is true, call `cancelDocumentNotifications(doc.id)` and `scheduleDocumentNotifications(updatedDoc, notificationSettings.advanceNoticeDays)`
    - Navigate back after saving
 
 4. Form validation: show inline error messages below each required field if empty on submit attempt. Use `Colors.error` for error text.
@@ -41,6 +42,7 @@ Do not change ExpiryBadge or DocumentCard.
 Do not add new dependencies for the date picker — plain text input only for now.
 
 ### Check when done
+
 - FAB on Home screen navigates to Add Document screen
 - Submitting a valid form adds the document to the store and it appears in the Home screen lists
 - Submitting an empty form shows inline validation errors

@@ -1,7 +1,12 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { filterUpcoming, sortByExpiry } from "@/lib/date";
+import {
+  cancelDocumentNotifications,
+  scheduleDocumentNotifications,
+} from "@/lib/notifications";
+import { LocalUser, NotificationSettings, ZentraDocument } from "@/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ZentraDocument, NotificationSettings, LocalUser } from "@/types";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 interface DocumentStore {
   // State
@@ -9,9 +14,11 @@ interface DocumentStore {
   notificationSettings: NotificationSettings;
   user: LocalUser | null;
   upcomingExpirations: ZentraDocument[];
+  _hasHydrated: boolean;
 
   // Actions
   setUser: (user: LocalUser | null) => void;
+  setHasHydrated: (state: boolean) => void;
   addDocument: (doc: ZentraDocument) => void;
   updateDocument: (id: string, updates: Partial<ZentraDocument>) => void;
   deleteDocument: (id: string) => void;
@@ -19,39 +26,11 @@ interface DocumentStore {
   toggleNotification: (id: string) => void;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   recomputeUpcoming: () => void;
+  clearAllData: () => void;
 }
 
-const getTodayMidnight = (): Date => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-};
-
-const parseLocalDate = (dateStr: string): Date | null => {
-  if (!dateStr) return null;
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return null;
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-  return new Date(year, month, day, 0, 0, 0, 0);
-};
-
-const getDaysUntilExpiry = (expiryDateStr: string): number => {
-  const expiryDate = parseLocalDate(expiryDateStr);
-  if (!expiryDate) return -9999;
-  const today = getTodayMidnight();
-  const diffTime = expiryDate.getTime() - today.getTime();
-  return Math.round(diffTime / (1000 * 60 * 60 * 24));
-};
-
 const computeUpcoming = (documents: ZentraDocument[]): ZentraDocument[] => {
-  return documents
-    .filter((doc) => {
-      const days = getDaysUntilExpiry(doc.expiryDate);
-      return days >= 0 && days <= 90;
-    })
-    .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+  return sortByExpiry(filterUpcoming(documents, 90));
 };
 
 export const useDocumentStore = create<DocumentStore>()(
@@ -65,9 +44,11 @@ export const useDocumentStore = create<DocumentStore>()(
       },
       user: null,
       upcomingExpirations: [],
+      _hasHydrated: false,
 
       // Actions
       setUser: (user) => set({ user }),
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       addDocument: (doc) => {
         set((state) => {
@@ -80,17 +61,40 @@ export const useDocumentStore = create<DocumentStore>()(
       },
 
       updateDocument: (id, updates) => {
-        set((state) => {
-          const updatedDocs = state.documents.map((doc) =>
-            doc.id === id
-              ? { ...doc, ...updates, updatedAt: new Date().toISOString() }
-              : doc
-          );
-          return {
-            documents: updatedDocs,
-            upcomingExpirations: computeUpcoming(updatedDocs),
-          };
+        const { documents, notificationSettings } = get();
+        const existingDoc = documents.find((doc) => doc.id === id);
+        const updatedAt = new Date().toISOString();
+        let updatedDoc: ZentraDocument | undefined;
+
+        const updatedDocs = documents.map((doc) => {
+          if (doc.id !== id) return doc;
+          updatedDoc = { ...doc, ...updates, updatedAt };
+          return updatedDoc;
         });
+
+        set({
+          documents: updatedDocs,
+          upcomingExpirations: computeUpcoming(updatedDocs),
+        });
+
+        if (
+          existingDoc &&
+          updates.expiryDate &&
+          updates.expiryDate !== existingDoc.expiryDate &&
+          (updatedDoc?.notificationsEnabled ??
+            existingDoc.notificationsEnabled) &&
+          notificationSettings.globalEnabled
+        ) {
+          void (async () => {
+            await cancelDocumentNotifications(existingDoc.id);
+            if (updatedDoc) {
+              await scheduleDocumentNotifications(
+                updatedDoc,
+                notificationSettings.advanceNoticeDays,
+              );
+            }
+          })();
+        }
       },
 
       deleteDocument: (id) => {
@@ -112,7 +116,7 @@ export const useDocumentStore = create<DocumentStore>()(
                   isFavorite: !doc.isFavorite,
                   updatedAt: new Date().toISOString(),
                 }
-              : doc
+              : doc,
           );
           return {
             documents: updatedDocs,
@@ -130,7 +134,7 @@ export const useDocumentStore = create<DocumentStore>()(
                   notificationsEnabled: !doc.notificationsEnabled,
                   updatedAt: new Date().toISOString(),
                 }
-              : doc
+              : doc,
           );
           return {
             documents: updatedDocs,
@@ -153,17 +157,28 @@ export const useDocumentStore = create<DocumentStore>()(
           upcomingExpirations: computeUpcoming(state.documents),
         }));
       },
+      clearAllData: () => {
+        set({ documents: [], upcomingExpirations: [] });
+      },
     }),
     {
       name: "zentra-document-storage",
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        documents: state.documents,
+        notificationSettings: state.notificationSettings,
+        user: state.user,
+      }),
       onRehydrateStorage: () => {
         return (state, error) => {
-          if (state && !error) {
-            state.recomputeUpcoming();
+          if (state) {
+            if (!error) {
+              state.recomputeUpcoming();
+            }
+            state.setHasHydrated(true);
           }
         };
       },
-    }
-  )
+    },
+  ),
 );

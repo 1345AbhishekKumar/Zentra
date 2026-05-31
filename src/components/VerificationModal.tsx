@@ -1,16 +1,16 @@
-import { useClerk, useSignUp } from "@clerk/expo";
+import { useSignUp } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 interface VerificationModalProps {
@@ -66,7 +66,6 @@ export function VerificationModal({
   const [error, setError] = useState("");
 
   const { signUp } = useSignUp();
-  useClerk();
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
   const isLoaded = !!signUp;
