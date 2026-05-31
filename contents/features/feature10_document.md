@@ -36,7 +36,7 @@ Build the Documents tab screen (`app/(tabs)/documents.tsx`). This screen shows a
 6. **Create `components/DocumentCard.tsx`**
    - Props: `doc: ZentraDocument`, `onPress: () => void`, `onFavoritePress: () => void`
    - Renders file icon (color-coded by fileType), name, size, date, favorite star
-   - Use `ExpiryBadge` component if document is expiring soon (feature10 will build ExpiryBadge — leave a stub import for now)
+   - Use `ExpiryBadge` component if document is expiring soon (ExpiryBadge is implemented in feature11 (Document Details Screen + ExpiryBadge Component) — leave a stub import for now)
 
 All filtering logic lives in the component using `useMemo`. No new store selectors needed.
 Use NativeWind for all styling. No StyleSheet except for shadows.
@@ -47,9 +47,11 @@ Do not touch the store, lib files, or auth.
 Preserve the tab bar from feature4 exactly.
 
 ### Reference
+
 A design image of the Documents screen is attached. Match the layout, folder rows, pill tabs, document list rows, and icon color coding exactly.
 
 ### Check when done
+
 - Typing in search filters the document list in real time
 - Tapping a filter pill updates the list correctly
 - Tapping a category folder filters to that category

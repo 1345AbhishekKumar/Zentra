@@ -1,4 +1,5 @@
 import { expiryLabel, expiryUrgency } from "@/lib/date";
+import { colors } from "@/theme/tokens";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Text, View } from "react-native";
@@ -50,21 +51,32 @@ export default function ExpiryBadge({
 
   // Format label text: e.g. "Expired" or "Expires in 5 days" or "Expires today"
   let labelText = label;
-  if (label === "Expired") {
-    labelText = "Expired";
-  } else if (label === "Today" || label === "Tomorrow") {
+  if (label === "Today" || label === "Tomorrow") {
     labelText = `Expires ${label.toLowerCase()}`;
   } else if (label.startsWith("In ")) {
     labelText = `Expires ${label.toLowerCase()}`;
-  } else {
+  } else if (label !== "Expired") {
     labelText = `Expires ${label}`;
   }
+
+  const resolvedColor = textClass.includes("text-danger")
+    ? colors.danger
+    : textClass.includes("text-warning")
+      ? colors.warning
+      : textClass.includes("text-success")
+        ? colors.success
+        : colors.secondary;
 
   return (
     <View
       className={`flex-row items-center px-2 py-0.5 rounded-full ${bgClass}`}
     >
-      <Feather name={iconName} size={12} className={`mr-1 ${textClass}`} />
+      <Feather
+        name={iconName}
+        size={12}
+        color={resolvedColor}
+        className="mr-1"
+      />
       <Text className={`text-caption ${textClass}`}>{labelText}</Text>
     </View>
   );

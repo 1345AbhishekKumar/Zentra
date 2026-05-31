@@ -5,17 +5,17 @@ import { Link, Stack, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 
 interface ClerkErrorJSON {
@@ -349,11 +349,7 @@ export default function SignIn() {
                       onBlur={() => setIsPasswordFocused(false)}
                       secureTextEntry={!showPassword}
                       selectionColor="#3525cd"
-                      className={`w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] ${
-                        showPassword
-                          ? "text-[16px] py-[12px]"
-                          : "text-[16px] py-[12px]"
-                      }`}
+                      className="w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] text-[16px] py-[12px]"
                       style={{
                         fontFamily: "Inter",
                         width: "100%",

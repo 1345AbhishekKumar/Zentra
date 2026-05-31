@@ -4,12 +4,18 @@ import { useUser } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
+import { useRouter } from "expo-router";
+import { expiryUrgency } from "@/lib/date";
 
 export default function DashboardHeader() {
   const { user } = useUser();
-  const upcomingCount = useDocumentStore(
-    (state) => state.upcomingExpirations.length
-  );
+  const router = useRouter();
+  const documents = useDocumentStore((state) => state.documents);
+
+  const hasExpiredOrCritical = documents.some((doc) => {
+    const urgency = expiryUrgency(doc.expiryDate);
+    return urgency === "expired" || urgency === "critical";
+  });
 
   const displayName = user?.firstName || "User";
 
@@ -25,23 +31,16 @@ export default function DashboardHeader() {
         </Text>
 
         <Pressable
+          onPress={() => router.push("/alerts")}
           className="relative w-11 h-11 rounded-full items-center justify-center active:bg-soft-accent"
-          accessibilityLabel={`Notifications${upcomingCount > 0 ? `, ${upcomingCount} upcoming` : ""}`}
+          accessibilityLabel="View expiry alerts"
           accessibilityRole="button"
         >
           <Feather name="bell" size={24} color={colors.primary} />
-          {upcomingCount > 0 && (
+          {hasExpiredOrCritical && (
             <View
-              className="absolute top-0.5 right-0.5 bg-accent rounded-full items-center justify-center border-2 border-white"
-              style={styles.badge}
-            >
-              <Text
-                className="text-white font-bold text-center"
-                style={styles.badgeText}
-              >
-                {upcomingCount > 9 ? "9+" : upcomingCount}
-              </Text>
-            </View>
+              className="absolute top-1 right-1 w-3 h-3 bg-danger rounded-full border border-white"
+            />
           )}
         </Pressable>
       </View>
@@ -64,14 +63,5 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 32,
     letterSpacing: -0.4,
-  },
-  badge: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    lineHeight: 12,
   },
 });

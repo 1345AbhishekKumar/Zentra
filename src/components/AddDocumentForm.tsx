@@ -1,23 +1,32 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Switch,
-  ScrollView,
-  StyleSheet,
-} from "react-native";
-import { ZentraDocument, DocumentCategory, DocumentFileType } from "@/types";
+import NotificationToggle from "@/components/NotificationToggle";
+import DatePickerField from "@/components/DatePickerField";
+import FilePickerButton, { PickedFile } from "@/components/FilePickerButton";
 import { colors } from "@/theme/tokens";
-import { parseISO, isValid } from "date-fns";
+import { DocumentCategory, DocumentFileType, ZentraDocument } from "@/types";
+import { isValid, parseISO, startOfDay, startOfToday } from "date-fns";
+import { useState } from "react";
+import {
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
 interface AddDocumentFormProps {
   onSubmit: (doc: ZentraDocument) => void;
   onCancel: () => void;
+  initialValues?: ZentraDocument;
 }
 
-const CATEGORIES: DocumentCategory[] = ["Personal", "Work", "Finance", "Health", "Other"];
+const CATEGORIES: DocumentCategory[] = [
+  "Personal",
+  "Work",
+  "Finance",
+  "Health",
+  "Other",
+];
 const FILE_TYPES: { value: DocumentFileType; label: string }[] = [
   { value: "pdf", label: "PDF" },
   { value: "image", label: "Image" },
@@ -62,37 +71,56 @@ function getCategoryPillStyle(cat: DocumentCategory, isSelected: boolean) {
   }
 }
 
-export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormProps) {
+export default function AddDocumentForm({
+  onSubmit,
+  onCancel,
+  initialValues,
+}: AddDocumentFormProps) {
   // Form State
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<DocumentCategory>("Personal");
-  const [fileType, setFileType] = useState<DocumentFileType>("pdf");
-  const [expiryDate, setExpiryDate] = useState("");
-  const [sizeLabel, setSizeLabel] = useState("");
-  const [notes, setNotes] = useState("");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [name, setName] = useState(initialValues?.name || "");
+  const [category, setCategory] = useState<DocumentCategory>(
+    initialValues?.category || "Personal",
+  );
+  const [fileType, setFileType] = useState<DocumentFileType>(
+    initialValues?.fileType || "pdf",
+  );
+  const [expiryDate, setExpiryDate] = useState(initialValues?.expiryDate || "");
+  const [sizeLabel, setSizeLabel] = useState(initialValues?.sizeLabel || "");
+  const [notes, setNotes] = useState(initialValues?.notes || "");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    initialValues?.notificationsEnabled ?? true,
+  );
+  const [localUri, setLocalUri] = useState<string | undefined>(
+    initialValues?.localUri || undefined,
+  );
+  const [fileName, setFileName] = useState<string | undefined>(
+    initialValues?.localUri ? initialValues.name : undefined,
+  );
 
   // Active focus element state
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Errors State
-  const [errors, setErrors] = useState<{ name?: string; expiryDate?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; expiryDate?: string }>(
+    {},
+  );
 
-  const handleDateChange = (text: string) => {
-    // Strip non-digits
-    const cleaned = text.replace(/\D/g, "");
-    let formatted = cleaned;
-
-    if (cleaned.length > 4) {
-      formatted = `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}`;
-    }
-    if (cleaned.length > 6) {
-      formatted = `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}-${cleaned.slice(6, 8)}`;
-    }
-
-    setExpiryDate(formatted);
-    if (errors.expiryDate) {
-      setErrors((prev) => ({ ...prev, expiryDate: undefined }));
+  const handleFilePicked = (file: PickedFile | null) => {
+    if (file) {
+      setLocalUri(file.uri);
+      setFileName(file.name);
+      setSizeLabel(file.sizeLabel);
+      setFileType(file.fileType);
+      if (!name.trim()) {
+        setName(file.name);
+        if (errors.name) {
+          setErrors((prev) => ({ ...prev, name: undefined }));
+        }
+      }
+    } else {
+      setLocalUri(undefined);
+      setFileName(undefined);
+      setSizeLabel("");
     }
   };
 
@@ -115,6 +143,12 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
         const parsed = parseISO(expiryDate);
         if (!isValid(parsed)) {
           newErrors.expiryDate = "Please enter a valid calendar date.";
+        } else {
+          const normalized = startOfDay(parsed);
+          const todayStart = startOfToday();
+          if (normalized.getTime() <= todayStart.getTime()) {
+            newErrors.expiryDate = "Expiry date must be in the future.";
+          }
         }
       }
     }
@@ -134,17 +168,18 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
         : `doc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     const newDoc: ZentraDocument = {
-      id: randomId,
+      id: initialValues?.id || randomId,
       name: name.trim(),
       category,
       fileType,
       expiryDate: expiryDate.trim(),
-      createdAt: new Date().toISOString(),
+      createdAt: initialValues?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       sizeLabel: sizeLabel.trim() || undefined,
       notificationsEnabled,
-      isFavorite: false,
+      isFavorite: initialValues?.isFavorite ?? false,
       notes: notes.trim() || undefined,
+      localUri: localUri?.trim() || undefined,
     };
 
     onSubmit(newDoc);
@@ -158,8 +193,8 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
       borderColor: hasError
         ? colors.danger
         : isFocused
-        ? colors.accent
-        : colors.border,
+          ? colors.accent
+          : colors.border,
       paddingHorizontal: isFocused ? 15 : 16,
       paddingVertical: isFocused ? 11 : 12,
     };
@@ -181,7 +216,8 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
             value={name}
             onChangeText={(text) => {
               setName(text);
-              if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+              if (errors.name)
+                setErrors((prev) => ({ ...prev, name: undefined }));
             }}
             onFocus={() => setFocusedField("name")}
             onBlur={() => setFocusedField(null)}
@@ -213,7 +249,9 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
                   className={`px-4 py-2.5 rounded-full border ${pillStyles.bgClass}`}
                   style={({ pressed }) => [pressed && styles.pressedScale]}
                 >
-                  <Text className={`text-body-md font-semibold ${pillStyles.textClass}`}>
+                  <Text
+                    className={`text-body-md font-semibold ${pillStyles.textClass}`}
+                  >
                     {cat}
                   </Text>
                 </Pressable>
@@ -255,28 +293,17 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
         </View>
 
         {/* Expiry Date */}
-        <View className="mb-4">
-          <Text className="text-body-md text-primary font-semibold mb-2">
-            Expiry Date *
-          </Text>
-          <TextInput
-            value={expiryDate}
-            onChangeText={handleDateChange}
-            onFocus={() => setFocusedField("expiryDate")}
-            onBlur={() => setFocusedField(null)}
-            placeholder="YYYY-MM-DD (e.g. 2029-05-10)"
-            placeholderTextColor={colors.secondary}
-            maxLength={10}
-            keyboardType="numeric"
-            className="bg-surface rounded-xl text-body-md text-primary"
-            style={getInputStyles("expiryDate", !!errors.expiryDate)}
-          />
-          {errors.expiryDate && (
-            <Text className="text-caption text-danger mt-1.5 font-medium">
-              {errors.expiryDate}
-            </Text>
-          )}
-        </View>
+        <DatePickerField
+          label="Expiry Date *"
+          value={expiryDate}
+          onChange={(date) => {
+            setExpiryDate(date);
+            if (errors.expiryDate) {
+              setErrors((prev) => ({ ...prev, expiryDate: undefined }));
+            }
+          }}
+          error={errors.expiryDate}
+        />
 
         {/* Size Label */}
         <View className="mb-4">
@@ -294,6 +321,14 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
             style={getInputStyles("sizeLabel", false)}
           />
         </View>
+        {/* File Picker */}
+        <FilePickerButton
+          onFilePicked={handleFilePicked}
+          currentUri={localUri}
+          fileName={fileName || name}
+          fileSizeLabel={sizeLabel}
+          fileType={fileType}
+        />
 
         {/* Notes */}
         <View className="mb-4">
@@ -316,21 +351,18 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
         </View>
 
         {/* Notification Settings Toggle */}
-        <View className="flex-row items-center justify-between bg-surface rounded-xl border border-border/60 p-4 mb-6 shadow-sm">
-          <View className="flex-1 mr-4">
-            <Text className="text-body-lg text-primary font-semibold">
-              Enable Expiry Notifications
-            </Text>
-            <Text className="text-caption text-secondary mt-0.5">
-              Receive alerts locally on device before expiration.
-            </Text>
-          </View>
-          <Switch
-            value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
-            trackColor={{ false: "#E5E7EB", true: colors.accent }}
-            thumbColor={notificationsEnabled ? "#FFFFFF" : "#F3F4F6"}
+        <View className="bg-surface rounded-xl border border-border/60 p-4 mb-6 shadow-sm">
+          <NotificationToggle
+            documentId=""
+            enabled={notificationsEnabled}
+            onToggle={setNotificationsEnabled}
+            label="Enable Expiry Notifications"
+            textClassName="text-body-lg text-primary font-semibold"
+            className="flex-row items-center justify-between w-full"
           />
+          <Text className="text-caption text-secondary mt-1.5">
+            Receive alerts locally on device before expiration.
+          </Text>
         </View>
 
         {/* Action Buttons Row */}
@@ -340,15 +372,22 @@ export default function AddDocumentForm({ onSubmit, onCancel }: AddDocumentFormP
             className="flex-1 h-[52px] border border-border rounded-xl items-center justify-center bg-surface active:bg-background"
             style={({ pressed }) => [pressed && styles.pressedScale]}
           >
-            <Text className="text-button text-secondary font-semibold">Cancel</Text>
+            <Text className="text-button text-secondary font-semibold">
+              Cancel
+            </Text>
           </Pressable>
 
           <Pressable
             onPress={handleSave}
-            className="flex-2 h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-95"
-            style={({ pressed }) => [pressed && styles.pressedScale]}
+            className="h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-95"
+            style={({ pressed }) => [
+              { flex: 2 },
+              pressed && styles.pressedScale,
+            ]}
           >
-            <Text className="text-button text-white font-semibold">Save Document</Text>
+            <Text className="text-button text-white font-semibold">
+              {initialValues ? "Update Document" : "Save Document"}
+            </Text>
           </Pressable>
         </View>
       </View>

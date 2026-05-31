@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Zentra",
-    "slug": "Zentra",
+    "slug": "zentra",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logo/icon.png",
@@ -12,7 +12,8 @@
         "foregroundImage": "./assets/Logo/icon.png",
         "backgroundColor": "#E6F4FE"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.abhiffhdsdsorganization.zentra"
     },
     "web": {
       "output": "static"
@@ -28,11 +29,28 @@
             "imageWidth": 76
           }
         }
+      ],
+      "expo-secure-store",
+      "@clerk/expo",
+      "expo-document-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you attach them to documents.",
+          "cameraPermission": "The app accesses your camera to let you scan documents."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "211be624-9310-4100-aabc-85dec5f820e9"
+      }
+    },
+    "owner": "abhiffhdsds-organization"
   }
 }

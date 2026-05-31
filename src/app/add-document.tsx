@@ -1,18 +1,30 @@
-import React from "react";
-import { View, Text, Pressable, KeyboardAvoidingView, Platform } from "react-native";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
-import { useDocumentStore } from "@/store/documentStore";
-import { scheduleDocumentNotifications } from "@/lib/notifications";
 import AddDocumentForm from "@/components/AddDocumentForm";
+import { scheduleDocumentNotifications } from "@/lib/notifications";
+import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
+import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    Text,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AddDocumentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addDocument, notificationSettings } = useDocumentStore();
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)");
+  };
 
   const handleFormSubmit = async (newDoc: ZentraDocument) => {
     // 1. Persist the document in the local store
@@ -23,7 +35,7 @@ export default function AddDocumentScreen() {
       try {
         await scheduleDocumentNotifications(
           newDoc,
-          notificationSettings.advanceNoticeDays
+          notificationSettings.advanceNoticeDays,
         );
       } catch (err) {
         console.error("Failed to schedule document notifications:", err);
@@ -31,7 +43,7 @@ export default function AddDocumentScreen() {
     }
 
     // 3. Navigate back to previous screen
-    router.back();
+    goBack();
   };
 
   return (
@@ -46,7 +58,7 @@ export default function AddDocumentScreen() {
       >
         <Text className="text-h1 text-primary font-bold">Add Document</Text>
         <Pressable
-          onPress={() => router.back()}
+          onPress={goBack}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Close add document modal"
@@ -57,7 +69,7 @@ export default function AddDocumentScreen() {
       </View>
 
       <View className="flex-1 px-6 pt-5">
-        <AddDocumentForm onSubmit={handleFormSubmit} onCancel={() => router.back()} />
+        <AddDocumentForm onSubmit={handleFormSubmit} onCancel={goBack} />
       </View>
     </KeyboardAvoidingView>
   );

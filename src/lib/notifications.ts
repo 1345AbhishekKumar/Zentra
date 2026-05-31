@@ -1,8 +1,8 @@
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import { Platform } from "react-native";
 import { ZentraDocument } from "@/types";
 import { parseISO, subDays } from "date-fns";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -62,7 +62,7 @@ export async function hasPermission(): Promise<boolean> {
  */
 export async function scheduleDocumentNotifications(
   doc: ZentraDocument,
-  advanceNoticeDays: number[]
+  advanceNoticeDays: number[],
 ): Promise<void> {
   // First cancel any existing notifications for this document
   await cancelDocumentNotifications(doc.id);
@@ -75,7 +75,9 @@ export async function scheduleDocumentNotifications(
   // Check permissions before scheduling
   const hasPerm = await hasPermission();
   if (!hasPerm) {
-    console.log("[Notifications] Cannot schedule: notification permissions not granted.");
+    console.log(
+      "[Notifications] Cannot schedule: notification permissions not granted.",
+    );
     return;
   }
 
@@ -111,16 +113,23 @@ export async function scheduleDocumentNotifications(
 /**
  * Cancels all scheduled notifications for a specific document ID.
  */
-export async function cancelDocumentNotifications(documentId: string): Promise<void> {
+export async function cancelDocumentNotifications(
+  documentId: string,
+): Promise<void> {
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
       if (notification.identifier.startsWith(`${documentId}-`)) {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        await Notifications.cancelScheduledNotificationAsync(
+          notification.identifier,
+        );
       }
     }
   } catch (error) {
-    console.error(`[Notifications] Failed to cancel notifications for document ${documentId}:`, error);
+    console.error(
+      `[Notifications] Failed to cancel notifications for document ${documentId}:`,
+      error,
+    );
   }
 }
 
@@ -132,8 +141,10 @@ export async function cancelAllNotifications(): Promise<void> {
 }
 
 /**
- * Returns the list of all currently scheduled notification identifiers.
+ * Returns the full list of all scheduled notification requests.
  */
-export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
+export async function getScheduledNotifications(): Promise<
+  Notifications.NotificationRequest[]
+> {
   return await Notifications.getAllScheduledNotificationsAsync();
 }

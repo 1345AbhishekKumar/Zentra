@@ -2,10 +2,7 @@ Read AGENTS.md first and follow it strictly.
 
 Implement the home screen UI based on the attached design. the existing NativeWind/global.css design utilities.
 
-
 @assets/images/home.png
-
-
 
 ## Task — Dashboard / Home Screen
 
@@ -14,9 +11,9 @@ Build the Home tab screen (`app/(tabs)/index.tsx`). This is the first real scree
 **Layout (top to bottom):**
 
 1. **DashboardHeader** (`components/DashboardHeader.tsx`)
-   - App name "Memora" or "Zentra" in accent color (`#4F46E5`), bold, top-left
+   - App name "Zentra" in accent color (`#4F46E5`), bold, top-left
    - Notification bell icon top-right (with a blue badge dot if there are upcoming expirations)
-   - Below: "Hello, {user.displayName}" in large bold text
+   - Below: "Hello, {user.firstName}" in large bold text (from `useUser().user.firstName`)
    - Sub-text: "Good to see you again!" in secondary text color
 
 2. **Search Bar**
@@ -54,10 +51,12 @@ Do not touch the store, lib files, or auth flow.
 Preserve the tab bar from feature4 exactly.
 
 ### Reference
+
 A design image of the Home screen is attached. Match the layout, spacing, card styles, typography hierarchy, and color usage exactly.
 
 ### Check when done
-- Header shows the user's display name from Clerk (`useUser().user.firstName`)
+
+- Header shows the user's first name from Clerk (`useUser().user.firstName`)
 - Quick Access renders the 3 most recent documents (or fewer if store has less)
 - Recent Documents renders up to 4 most recent documents
 - FAB is visible and fixed to bottom-right above the tab bar

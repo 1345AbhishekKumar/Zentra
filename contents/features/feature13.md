@@ -62,7 +62,8 @@ Do not modify any existing file from feature1 through feature6.
 All notification logic must be local — no push notification servers, no FCM, no APNs tokens sent anywhere.
 
 ### Check when done
-- `lib/notifications.ts` exists and exports all 5 functions listed above
+
+- `lib/notifications.ts` exists and exports all 6 functions listed above
 - `requestPermissions()` returns a boolean without crashing on simulator (simulator returns false gracefully)
 - Notification identifiers follow the `${documentId}-${daysBeforeExpiry}d` convention
 - `bunx tsc --noEmit` passes

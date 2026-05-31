@@ -16,6 +16,8 @@ Always use bun for installing packages
 
 Read the CLAUDE.md file
 
+if i provide you solve any problems , after solving the problem update the report.md file 
+
 ## Project Overview
 
 We are building Zentra, a privacy-first mobile app that helps individuals and businesses track their important documents and receive timely alerts before they expire.

@@ -1,4 +1,5 @@
 import DocumentCard from "@/components/DocumentCard";
+import EmptyState from "@/components/EmptyState";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { DocumentCategory } from "@/types";
@@ -116,7 +117,7 @@ export default function DocumentsScreen() {
                 onPress={() => setViewMode("grid")}
                 accessibilityLabel="Grid view"
                 className={`w-9 h-9 items-center justify-center rounded-lg ${
-                  viewMode === "grid" ? "bg-softAccent" : "bg-transparent"
+                  viewMode === "grid" ? "bg-soft-accent" : "bg-transparent"
                 }`}
               >
                 <Feather
@@ -129,7 +130,7 @@ export default function DocumentsScreen() {
                 onPress={() => setViewMode("list")}
                 accessibilityLabel="List view"
                 className={`w-9 h-9 items-center justify-center rounded-lg ${
-                  viewMode === "list" ? "bg-softAccent" : "bg-transparent"
+                  viewMode === "list" ? "bg-soft-accent" : "bg-transparent"
                 }`}
               >
                 <Feather
@@ -213,7 +214,7 @@ export default function DocumentsScreen() {
           {/* Active Folder/Category Header Indicator */}
           {selectedCategory && (
             <View className="px-6 mb-5">
-              <View className="flex-row items-center justify-between bg-softAccent px-4 py-2.5 rounded-xl border border-accent/10">
+              <View className="flex-row items-center justify-between bg-soft-accent px-4 py-2.5 rounded-xl border border-accent/10">
                 <View className="flex-row items-center">
                   <Feather name="folder" size={16} color={colors.accent} />
                   <Text className="text-body-md text-primary font-semibold ml-2">
@@ -252,10 +253,10 @@ export default function DocumentsScreen() {
                     <Pressable
                       key={cat.name}
                       onPress={() => setSelectedCategory(cat.name)}
-                      className="flex-row items-center px-4 py-4.5 active:bg-background border-b border-border/40"
+                      className="flex-row items-center px-4 py-4 active:bg-background border-b border-border/40"
                       style={isLast ? { borderBottomWidth: 0 } : undefined}
                     >
-                      <View className="w-11 h-11 rounded-xl bg-softAccent items-center justify-center">
+                      <View className="w-11 h-11 rounded-xl bg-soft-accent items-center justify-center">
                         <Feather
                           name="folder"
                           size={22}
@@ -309,9 +310,7 @@ export default function DocumentsScreen() {
               </View>
             ) : (
               <View
-                className={`mx-6 bg-surface border border-border/40 overflow-hidden ${
-                  showFolders ? "rounded-2xl" : "rounded-2xl"
-                }`}
+                className="mx-6 bg-surface border border-border/40 overflow-hidden rounded-2xl"
                 style={styles.listShadow}
               >
                 {sortedDocuments.map((doc, idx) => (
@@ -331,38 +330,54 @@ export default function DocumentsScreen() {
               </View>
             )
           ) : (
-            // Empty results placeholder
-            <View className="px-6 items-center py-12 mt-4">
-              <View className="w-16 h-16 rounded-full bg-softAccent items-center justify-center mb-4">
-                <Feather
-                  name={selectedCategory ? "folder" : "file-text"}
-                  size={28}
-                  color={colors.accent}
-                />
-              </View>
-              <Text className="text-h2 text-primary text-center font-semibold">
-                No documents found
-              </Text>
-              <Text className="text-body-md text-secondary text-center mt-1.5 px-6 leading-5">
-                {searchQuery
-                  ? `No matches for "${searchQuery}" in this folder.`
-                  : "Start by adding documents using the plus button below."}
-              </Text>
-              {(searchQuery || selectedTab !== "All" || selectedCategory) && (
-                <Pressable
-                  onPress={() => {
+            (() => {
+              if (documents.length === 0) {
+                return (
+                  <EmptyState
+                    icon="document-text-outline"
+                    title="Your vault is empty"
+                    message="Start by adding a document"
+                    actionLabel="Add Document"
+                    onAction={() => router.push("/add-document" as never)}
+                  />
+                );
+              }
+              if (searchQuery.trim()) {
+                return (
+                  <EmptyState
+                    icon="search-outline"
+                    title="No results found"
+                    message="Try a different search term"
+                    actionLabel="Clear Search"
+                    onAction={() => setSearchQuery("")}
+                  />
+                );
+              }
+              if (selectedCategory) {
+                return (
+                  <EmptyState
+                    icon="folder-outline"
+                    title={`No ${selectedCategory} documents`}
+                    message="Add a document to this category"
+                    actionLabel="Clear Category"
+                    onAction={() => setSelectedCategory(null)}
+                  />
+                );
+              }
+              return (
+                <EmptyState
+                  icon="document-text-outline"
+                  title="No documents found"
+                  message="No matches found for your current filters."
+                  actionLabel="Clear Filters"
+                  onAction={() => {
                     setSearchQuery("");
                     setSelectedTab("All");
                     setSelectedCategory(null);
                   }}
-                  className="mt-6 px-5 py-2.5 bg-softAccent border border-accent/10 rounded-xl active:opacity-90"
-                >
-                  <Text className="text-body-md text-accent font-semibold">
-                    Clear Filters
-                  </Text>
-                </Pressable>
-              )}
-            </View>
+                />
+              );
+            })()
           )}
         </ScrollView>
 
