@@ -91,7 +91,8 @@ export default function DocumentCard({
           </View>
           <Pressable
             onPress={onFavoritePress}
-            hitSlop={8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
             accessibilityLabel={
               doc.isFavorite ? "Remove from favorites" : "Add to favorites"
             }
@@ -155,7 +156,8 @@ export default function DocumentCard({
 
       <Pressable
         onPress={onFavoritePress}
-        hitSlop={12}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
         accessibilityLabel={
           doc.isFavorite ? "Remove from favorites" : "Add to favorites"
         }

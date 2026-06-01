@@ -1,5 +1,6 @@
 import ExpiryBadge from "@/components/ExpiryBadge";
 import EmptyState from "@/components/EmptyState";
+import FileViewer from "@/components/FileViewer";
 import NotificationToggle from "@/components/NotificationToggle";
 import { formatDate } from "@/lib/date";
 import {
@@ -11,10 +12,15 @@ import { colors } from "@/theme/tokens";
 import { useUser } from "@clerk/expo";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
+import * as FileSystem from "expo-file-system/legacy";
+import type * as SharingType from "expo-sharing";
+import { buildDocumentSummary, mimeTypeFor } from "@/lib/share";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
+    AccessibilityInfo,
     Alert,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -87,6 +93,7 @@ export default function DocumentDetailsScreen() {
     notificationSettings,
   } = useDocumentStore();
   const insets = useSafeAreaInsets();
+  const [fileViewerVisible, setFileViewerVisible] = useState(false);
   const goBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -138,9 +145,96 @@ export default function DocumentDetailsScreen() {
   const formattedExpiry = formatDate(doc.expiryDate);
 
   // Actions
-  const handleShare = () => {
-    console.log("Share pressed for document:", doc.id);
-    Alert.alert("Share", "Sharing option is decorative for now.");
+  const handleViewFile = async () => {
+    if (!doc.localUri) return;
+    try {
+      const info = await FileSystem.getInfoAsync(doc.localUri);
+      if (!info.exists) {
+        Alert.alert(
+          "File Not Found",
+          "The attached file could not be found. It may have been moved or deleted from your device.",
+        );
+        return;
+      }
+      setFileViewerVisible(true);
+    } catch {
+      Alert.alert(
+        "File Not Found",
+        "The attached file could not be found. It may have been moved or deleted from your device.",
+      );
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      // Check native module availability first to prevent crash on require("expo-sharing")
+      let isNativeSharingAvailable = false;
+      if (Platform.OS === "web") {
+        isNativeSharingAvailable = true;
+      } else {
+        try {
+          const { requireOptionalNativeModule } = require("expo-modules-core");
+          isNativeSharingAvailable = !!requireOptionalNativeModule("ExpoSharing");
+        } catch {
+          isNativeSharingAvailable = false;
+        }
+      }
+
+      if (!isNativeSharingAvailable) {
+        Alert.alert(
+          "Sharing Not Available",
+          "Sharing is not available on this device/environment."
+        );
+        return;
+      }
+
+      const Sharing = require("expo-sharing") as typeof SharingType;
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert(
+          "Sharing Not Available",
+          "Sharing is not available on this device."
+        );
+        return;
+      }
+
+      if (doc.localUri) {
+        // Case A — document has a localUri (file is attached)
+        const fileInfo = await FileSystem.getInfoAsync(doc.localUri);
+        if (!fileInfo.exists) {
+          Alert.alert(
+            "File Not Found",
+            "The attached file could not be found on your device."
+          );
+          return;
+        }
+
+        await Sharing.shareAsync(doc.localUri, {
+          mimeType: mimeTypeFor(doc.fileType),
+          dialogTitle: doc.name,
+        });
+      } else {
+        // Case B — document has no localUri (metadata only)
+        const summary = buildDocumentSummary(doc);
+        const tempUri = FileSystem.cacheDirectory + "zentra_share.txt";
+        await FileSystem.writeAsStringAsync(tempUri, summary);
+
+        await Sharing.shareAsync(tempUri);
+
+        // Delete the temp file after sharing completes (fire-and-forget, no crash if delete fails)
+        try {
+          await FileSystem.deleteAsync(tempUri, { idempotent: true });
+        } catch (error) {
+          console.warn("Failed to delete temp sharing file:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error during document sharing:", error);
+      Alert.alert(
+        "Error",
+        "An unexpected error occurred while sharing the document."
+      );
+    }
   };
 
   const handleDownload = () => {
@@ -165,6 +259,7 @@ export default function DocumentDetailsScreen() {
           onPress: async () => {
             await cancelDocumentNotifications(doc.id);
             deleteDocument(doc.id);
+            AccessibilityInfo.announceForAccessibility("Document deleted");
             goBack();
           },
         },
@@ -201,7 +296,8 @@ export default function DocumentDetailsScreen() {
       >
         <Pressable
           onPress={goBack}
-          hitSlop={12}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
           accessibilityLabel="Go back"
           className="w-10 h-10 items-center justify-center rounded-full active:bg-background"
         >
@@ -210,7 +306,8 @@ export default function DocumentDetailsScreen() {
         <Text className="text-h2 text-primary font-bold">Document Details</Text>
         <Pressable
           onPress={showOptions}
-          hitSlop={12}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
           accessibilityLabel="More options"
           className="w-10 h-10 items-center justify-center rounded-full active:bg-background"
         >
@@ -396,8 +493,25 @@ export default function DocumentDetailsScreen() {
         {/* Actions Section */}
         <View className="mt-8">
           <View className="bg-surface rounded-2xl border border-border/40 overflow-hidden">
+            {/* View File — only shown when a file is attached */}
+            {doc.localUri ? (
+              <Pressable
+                onPress={handleViewFile}
+                accessibilityRole="button"
+                accessibilityLabel="View attached file"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background"
+              >
+                <Feather name="eye" size={20} color={colors.accent} />
+                <Text className="text-body-lg text-accent ml-3 font-semibold">
+                  View File
+                </Text>
+              </Pressable>
+            ) : null}
+
             <Pressable
               onPress={handleShare}
+              accessibilityRole="button"
+              accessibilityLabel="Share document"
               className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background"
             >
               <Feather name="share-2" size={20} color={colors.primary} />
@@ -408,6 +522,8 @@ export default function DocumentDetailsScreen() {
 
             <Pressable
               onPress={handleDownload}
+              accessibilityRole="button"
+              accessibilityLabel="Download document"
               className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background"
             >
               <Feather name="download" size={20} color={colors.primary} />
@@ -418,6 +534,8 @@ export default function DocumentDetailsScreen() {
 
             <Pressable
               onPress={() => toggleFavorite(doc.id)}
+              accessibilityRole="button"
+              accessibilityLabel={doc.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
               className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background"
             >
               <Ionicons
@@ -436,6 +554,8 @@ export default function DocumentDetailsScreen() {
 
             <Pressable
               onPress={handleMove}
+              accessibilityRole="button"
+              accessibilityLabel="Move document"
               className="flex-row items-center px-4 py-4 active:bg-background"
             >
               <Feather name="folder-plus" size={20} color={colors.primary} />
@@ -446,6 +566,17 @@ export default function DocumentDetailsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* File Viewer Modal */}
+      {doc.localUri ? (
+        <FileViewer
+          visible={fileViewerVisible}
+          onClose={() => setFileViewerVisible(false)}
+          localUri={doc.localUri}
+          fileType={doc.fileType}
+          fileName={doc.name}
+        />
+      ) : null}
     </View>
   );
 }

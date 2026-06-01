@@ -44,6 +44,9 @@ export default function DatePickerField({
   const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(false);
 
+  const isRequired = label.endsWith("*");
+  const displayLabel = isRequired ? label.slice(0, -1).trim() : label;
+
   // Parse value to Date or fallback to today
   const getInitialDate = () => {
     if (value) {
@@ -91,12 +94,14 @@ export default function DatePickerField({
     <View className="mb-4">
       {/* Label above the row wrapper to align with other form fields */}
       <Text className="text-body-md text-primary font-semibold mb-2">
-        {label}
+        {displayLabel} {isRequired && <Text className="text-danger">*</Text>}
       </Text>
 
       <Pressable
         onPress={handleTap}
-        className="bg-surface rounded-xl flex-row items-center justify-between w-full relative"
+        accessibilityRole="button"
+        accessibilityLabel={`Expiry Date: ${value ? formatDate(value) : "Not selected"}`}
+        className="bg-surface rounded-xl flex-row items-center justify-between w-full relative border border-border px-4 h-[52px]"
         style={({ pressed }) => [
           {
             borderWidth: isFocused ? 2 : 1,
@@ -105,26 +110,24 @@ export default function DatePickerField({
               : isFocused
                 ? colors.accent
                 : colors.border,
-            paddingHorizontal: isFocused ? 15 : 16,
-            paddingVertical: isFocused ? 11 : 12,
+            borderStyle: "solid",
           },
           (pressed && Platform.OS !== "web" && styles.pressedScale) as any,
         ]}
       >
-        <Text className="text-body-md text-secondary font-medium">
-          Select Expiry Date
+        <Text
+          className={`text-body-md ${
+            value ? "text-primary" : "text-secondary"
+          }`}
+        >
+          {value ? formatDate(value) : "Select date"}
         </Text>
 
-        <View className="flex-row items-center">
-          <Text
-            className={`text-body-md font-medium mr-2 ${
-              value ? "text-primary" : "text-secondary"
-            }`}
-          >
-            {value ? formatDate(value) : "Select date"}
-          </Text>
-          <Feather name="calendar" size={20} color={colors.accent} />
-        </View>
+        <Feather
+          name="calendar"
+          size={20}
+          color={value ? colors.accent : colors.secondary}
+        />
 
         {/* Web Native HTML date input overlay */}
         {Platform.OS === "web" && (
@@ -158,19 +161,34 @@ export default function DatePickerField({
             <Pressable style={styles.flexOne as any} onPress={handleCancel} />
 
             {/* Bottom Sheet Card */}
-            <View className="bg-surface rounded-t-3xl overflow-hidden w-full max-w-lg self-center shadow-lg">
+            <View
+              className="bg-surface rounded-t-2xl overflow-hidden self-center shadow-lg"
+              style={{ width: "100%", maxWidth: 512 }}
+            >
               {/* Toolbar */}
               <View className="flex-row items-center justify-between px-6 py-4 border-b border-border bg-background">
-                <Pressable onPress={handleCancel} hitSlop={12}>
-                  <Text className="text-body-md text-secondary font-semibold">
+                <Pressable
+                  onPress={handleCancel}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel date selection"
+                  className="active:opacity-60"
+                >
+                  <Text className="text-body-md text-secondary font-semibold font-display">
                     Cancel
                   </Text>
                 </Pressable>
-                <Text className="text-body-lg text-primary font-bold">
+                <Text className="text-body-lg text-primary font-bold font-display">
                   Expiry Date
                 </Text>
-                <Pressable onPress={handleDone} hitSlop={12}>
-                  <Text className="text-body-md text-accent font-semibold">
+                <Pressable
+                  onPress={handleDone}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm date selection"
+                  className="active:opacity-60"
+                >
+                  <Text className="text-body-md text-accent font-bold font-display">
                     Done
                   </Text>
                 </Pressable>
@@ -180,18 +198,22 @@ export default function DatePickerField({
               <View className="flex-row items-center justify-between px-6 py-4 bg-surface">
                 <Pressable
                   onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                  className="p-2 rounded-full active:bg-softAccent"
-                  hitSlop={8}
+                  className="w-10 h-10 items-center justify-center rounded-full active:bg-soft-accent"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
                 >
                   <Feather name="chevron-left" size={24} color={colors.primary} />
                 </Pressable>
-                <Text className="text-body-lg text-primary font-bold">
+                <Text className="text-h2 text-primary font-bold font-display">
                   {format(currentMonth, "MMMM yyyy")}
                 </Text>
                 <Pressable
                   onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                  className="p-2 rounded-full active:bg-softAccent"
-                  hitSlop={8}
+                  className="w-10 h-10 items-center justify-center rounded-full active:bg-soft-accent"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
                 >
                   <Feather name="chevron-right" size={24} color={colors.primary} />
                 </Pressable>
@@ -202,7 +224,7 @@ export default function DatePickerField({
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((dayName, idx) => (
                   <Text
                     key={idx}
-                    className="text-caption text-secondary font-semibold text-center flex-1"
+                    className="text-caption text-secondary font-semibold text-center flex-1 font-sans"
                   >
                     {dayName}
                   </Text>
@@ -210,11 +232,15 @@ export default function DatePickerField({
               </View>
 
               {/* Days Grid */}
-              <View className="flex-row flex-wrap px-4 pb-6 bg-surface">
+              <View
+                className="px-4 pb-6 bg-surface"
+                style={{ flexDirection: "row", flexWrap: "wrap" }}
+              >
                 {daysGrid.map((day, idx) => {
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isPast = isBefore(day, startOfToday());
                   const isSelected = isSameDay(day, tempDate);
+                  const isTodayDate = isSameDay(day, startOfToday());
 
                   return (
                     <View
@@ -225,12 +251,17 @@ export default function DatePickerField({
                       <Pressable
                         disabled={isPast}
                         onPress={() => setTempDate(day)}
+                        accessibilityRole="button"
+                        accessibilityLabel={format(day, "d MMMM yyyy")}
+                        accessibilityState={{ disabled: isPast, selected: isSelected }}
                         className={`w-10 h-10 rounded-full items-center justify-center ${
                           isSelected
-                            ? "bg-accent"
+                            ? "bg-accent shadow-sm"
                             : isPast
-                              ? "opacity-30"
-                              : "active:bg-softAccent"
+                              ? "opacity-25"
+                              : isTodayDate
+                                ? "bg-soft-accent border border-accent/30"
+                                : "active:bg-soft-accent"
                         }`}
                         style={({ pressed }) =>
                           pressed && !isPast && !isSelected
@@ -239,14 +270,16 @@ export default function DatePickerField({
                         }
                       >
                         <Text
-                          className={`text-body-md font-semibold ${
+                          className={`text-body-md font-semibold font-display ${
                             isSelected
                               ? "text-white"
                               : isPast
                                 ? "text-secondary"
-                                : isCurrentMonth
-                                  ? "text-primary"
-                                  : "text-secondary opacity-50"
+                                : isTodayDate
+                                  ? "text-accent font-bold"
+                                  : isCurrentMonth
+                                    ? "text-primary"
+                                    : "text-secondary opacity-50"
                           }`}
                         >
                           {format(day, "d")}
@@ -273,6 +306,8 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
+    width: "100%",
+    height: "100%",
     backgroundColor: "rgba(18, 18, 26, 0.4)",
     justifyContent: "flex-end",
   },

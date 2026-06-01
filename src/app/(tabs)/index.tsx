@@ -7,8 +7,8 @@ import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { isToday, isYesterday, parseISO } from "date-fns";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 // ---------------------------------------------------------------------------
 // Icon/color mapping by document name, then file type, then category
@@ -186,7 +186,8 @@ function RecentDocRow({
 
       <Pressable
         onPress={() => {}}
-        hitSlop={8}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
         accessibilityLabel={`More options for ${doc.name}`}
         className="w-9 h-9 rounded-full items-center justify-center active:bg-soft-accent"
       >
@@ -203,17 +204,24 @@ export default function HomeScreen() {
   const router = useRouter();
   const { documents, addDocument } = useDocumentStore();
 
-  const sorted = [...documents].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  const sorted = useMemo(() => {
+    return [...documents].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
+  }, [documents]);
 
-  const recentDocs = sorted.slice(0, 4);
-  const quickAccessDocs = sorted
-    .filter(
-      (doc) =>
-        doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
-    )
-    .slice(0, 4);
+  const recentDocs = useMemo(() => {
+    return sorted.slice(0, 4);
+  }, [sorted]);
+
+  const quickAccessDocs = useMemo(() => {
+    return sorted
+      .filter(
+        (doc) =>
+          doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
+      )
+      .slice(0, 4);
+  }, [sorted, recentDocs]);
 
   const canSeedDemo = __DEV__;
 
@@ -330,16 +338,17 @@ export default function HomeScreen() {
           </View>
 
           {/* Search bar */}
-          <View className="px-6 mb-6">
-            <Pressable
-              onPress={() => router.navigate("/(tabs)/documents")}
-              accessibilityRole="search"
-              accessibilityLabel="Search documents and folders"
-              className="flex-row items-center bg-surface rounded-full border border-border pl-4 pr-1.5 py-1.5 active:opacity-90"
-            >
+          <Pressable
+            onPress={() => router.push("/search" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Search documents"
+            className="px-6 mb-6 active:opacity-90"
+            style={({ pressed }) => [pressed && styles.pressedScale]}
+          >
+            <View className="flex-row items-center bg-surface rounded-full border border-border pl-4 pr-1.5 py-1.5 h-12">
               <Feather name="search" size={18} color={colors.secondary} />
-              <Text className="text-body-md text-secondary ml-3 flex-1">
-                Search documents, folders...
+              <Text className="flex-1 text-body-md text-secondary ml-3">
+                Search documents...
               </Text>
               <View
                 className="w-9 h-9 rounded-xl bg-accent items-center justify-center"
@@ -347,8 +356,8 @@ export default function HomeScreen() {
               >
                 <Feather name="search" size={15} color="#FFFFFF" />
               </View>
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
 
           {documents.length === 0 ? (
             // ---------------------------------------------------------------
@@ -386,11 +395,11 @@ export default function HomeScreen() {
               {quickAccessDocs.length > 0 && (
                 <View className="mb-8">
                   <View className="flex-row justify-between items-center px-6 mb-4">
-                    <Text className="text-h2 text-primary">Quick Access</Text>
+                    <Text className="text-h2 text-primary font-semibold">Quick Access</Text>
                     <Pressable
                       onPress={() => router.navigate("/(tabs)/documents")}
-                      accessibilityRole="link"
-                      hitSlop={8}
+                      accessibilityRole="button"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       className="active:opacity-70"
                     >
                       <Text className="text-body-md text-accent font-semibold">
@@ -422,7 +431,7 @@ export default function HomeScreen() {
 
               {/* Recent Documents */}
               <View className="px-6 mb-6">
-                <Text className="text-h2 text-primary mb-4">
+                <Text className="text-h2 text-primary mb-4 font-semibold">
                   Recent Documents
                 </Text>
 

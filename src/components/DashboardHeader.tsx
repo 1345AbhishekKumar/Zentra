@@ -10,11 +10,12 @@ import { expiryUrgency } from "@/lib/date";
 export default function DashboardHeader() {
   const { user } = useUser();
   const router = useRouter();
-  const documents = useDocumentStore((state) => state.documents);
+  const { documents, readAlerts = [] } = useDocumentStore();
 
   const hasExpiredOrCritical = documents.some((doc) => {
     const urgency = expiryUrgency(doc.expiryDate);
-    return urgency === "expired" || urgency === "critical";
+    const isUnread = !readAlerts.includes(doc.id);
+    return (urgency === "expired" || urgency === "critical") && isUnread;
   });
 
   const displayName = user?.firstName || "User";
@@ -33,7 +34,7 @@ export default function DashboardHeader() {
         <Pressable
           onPress={() => router.push("/alerts")}
           className="relative w-11 h-11 rounded-full items-center justify-center active:bg-soft-accent"
-          accessibilityLabel="View expiry alerts"
+          accessibilityLabel="Open expiry alerts"
           accessibilityRole="button"
         >
           <Feather name="bell" size={24} color={colors.primary} />

@@ -18,15 +18,9 @@ interface AddDocumentFormProps {
   onSubmit: (doc: ZentraDocument) => void;
   onCancel: () => void;
   initialValues?: ZentraDocument;
+  folders: string[];
 }
 
-const CATEGORIES: DocumentCategory[] = [
-  "Personal",
-  "Work",
-  "Finance",
-  "Health",
-  "Other",
-];
 const FILE_TYPES: { value: DocumentFileType; label: string }[] = [
   { value: "pdf", label: "PDF" },
   { value: "image", label: "Image" },
@@ -34,52 +28,75 @@ const FILE_TYPES: { value: DocumentFileType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-function getCategoryPillStyle(cat: DocumentCategory, isSelected: boolean) {
+const FOLDER_THEMES = [
+  { bgClass: "bg-accent/10 border-accent", textClass: "text-accent" }, // Indigo
+  { bgClass: "bg-purple-50 border-purple-500", textClass: "text-purple-600" }, // Purple
+  { bgClass: "bg-emerald-50 border-emerald-500", textClass: "text-emerald-600" }, // Green
+  { bgClass: "bg-rose-50 border-rose-500", textClass: "text-rose-600" }, // Rose
+  { bgClass: "bg-amber-50 border-amber-500", textClass: "text-amber-600" }, // Amber/Orange
+  { bgClass: "bg-sky-50 border-sky-500", textClass: "text-sky-600" }, // Sky/Blue
+  { bgClass: "bg-teal-50 border-teal-500", textClass: "text-teal-600" }, // Teal
+];
+
+function getCategoryPillStyle(
+  cat: DocumentCategory,
+  isSelected: boolean,
+  foldersList: string[],
+) {
   if (!isSelected) {
     return {
       bgClass: "bg-surface border-border",
       textClass: "text-secondary",
     };
   }
-  switch (cat) {
-    case "Personal":
-      return {
-        bgClass: "bg-accent/10 border-accent",
-        textClass: "text-accent",
-      };
-    case "Work":
-      return {
-        bgClass: "bg-purple-50 border-purple-500",
-        textClass: "text-purple-600",
-      };
-    case "Finance":
-      return {
-        bgClass: "bg-emerald-50 border-emerald-500",
-        textClass: "text-emerald-600",
-      };
-    case "Health":
-      return {
-        bgClass: "bg-rose-50 border-rose-500",
-        textClass: "text-rose-600",
-      };
-    case "Other":
-    default:
-      return {
-        bgClass: "bg-slate-100 border-slate-500",
-        textClass: "text-slate-700",
-      };
+  const name = cat.toLowerCase();
+  if (name === "personal") {
+    return {
+      bgClass: "bg-accent/10 border-accent",
+      textClass: "text-accent",
+    };
   }
+  if (name === "work") {
+    return {
+      bgClass: "bg-purple-50 border-purple-500",
+      textClass: "text-purple-600",
+    };
+  }
+  if (name === "finance") {
+    return {
+      bgClass: "bg-emerald-50 border-emerald-500",
+      textClass: "text-emerald-600",
+    };
+  }
+  if (name === "health" || name === "medical") {
+    return {
+      bgClass: "bg-rose-50 border-rose-500",
+      textClass: "text-rose-600",
+    };
+  }
+
+  // Cyclic color schemes for dynamic folders
+  const idx = foldersList.findIndex((f) => f.toLowerCase() === name);
+  if (idx !== -1) {
+    return FOLDER_THEMES[idx % FOLDER_THEMES.length];
+  }
+
+  return {
+    bgClass: "bg-slate-100 border-slate-500",
+    textClass: "text-slate-700",
+  };
 }
 
 export default function AddDocumentForm({
   onSubmit,
   onCancel,
   initialValues,
+  folders,
 }: AddDocumentFormProps) {
   // Form State
   const [name, setName] = useState(initialValues?.name || "");
   const [category, setCategory] = useState<DocumentCategory>(
-    initialValues?.category || "Personal",
+    initialValues?.category || folders[0] || "Personal",
   );
   const [fileType, setFileType] = useState<DocumentFileType>(
     initialValues?.fileType || "pdf",
@@ -188,6 +205,7 @@ export default function AddDocumentForm({
   // Helper to generate dynamic styles for interactive focus highlights without shifts
   const getInputStyles = (fieldName: string, hasError: boolean) => {
     const isFocused = focusedField === fieldName;
+    const isMultiline = fieldName === "notes";
     return {
       borderWidth: isFocused ? 2 : 1,
       borderColor: hasError
@@ -196,7 +214,9 @@ export default function AddDocumentForm({
           ? colors.accent
           : colors.border,
       paddingHorizontal: isFocused ? 15 : 16,
-      paddingVertical: isFocused ? 11 : 12,
+      ...(isMultiline
+        ? { paddingVertical: isFocused ? 11 : 12, minHeight: 90 }
+        : { height: 52, paddingVertical: 0 }),
     };
   };
 
@@ -204,13 +224,13 @@ export default function AddDocumentForm({
     <ScrollView
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ paddingBottom: 40 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40 }}
     >
       <View className="space-y-6">
         {/* Document Name */}
         <View className="mb-4">
           <Text className="text-body-md text-primary font-semibold mb-2">
-            Document Name *
+            Document Name <Text className="text-danger">*</Text>
           </Text>
           <TextInput
             value={name}
@@ -221,9 +241,11 @@ export default function AddDocumentForm({
             }}
             onFocus={() => setFocusedField("name")}
             onBlur={() => setFocusedField(null)}
+            accessibilityLabel="Document name"
             placeholder="e.g. Passport.pdf"
             placeholderTextColor={colors.secondary}
             className="bg-surface rounded-xl text-body-md text-primary"
+            underlineColorAndroid="transparent"
             style={getInputStyles("name", !!errors.name)}
           />
           {errors.name && (
@@ -238,15 +260,21 @@ export default function AddDocumentForm({
           <Text className="text-body-md text-primary font-semibold mb-2.5">
             Category
           </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {CATEGORIES.map((cat) => {
+          <View
+            className="gap-2"
+            style={{ flexDirection: "row", flexWrap: "wrap" }}
+          >
+            {folders.map((cat) => {
               const isSelected = category === cat;
-              const pillStyles = getCategoryPillStyle(cat, isSelected);
+              const pillStyles = getCategoryPillStyle(cat, isSelected, folders);
               return (
                 <Pressable
                   key={cat}
                   onPress={() => setCategory(cat)}
-                  className={`px-4 py-2.5 rounded-full border ${pillStyles.bgClass}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Category: ${cat}`}
+                  accessibilityState={{ selected: category === cat }}
+                  className={`px-4 rounded-full border min-h-11 min-w-11 justify-center ${pillStyles.bgClass}`}
                   style={({ pressed }) => [pressed && styles.pressedScale]}
                 >
                   <Text
@@ -272,7 +300,10 @@ export default function AddDocumentForm({
                 <Pressable
                   key={type.value}
                   onPress={() => setFileType(type.value)}
-                  className={`flex-1 items-center py-2.5 rounded-xl border ${
+                  accessibilityRole="button"
+                  accessibilityLabel={`File type: ${type.label}`}
+                  accessibilityState={{ selected: isSelected }}
+                  className={`flex-1 items-center rounded-xl border min-h-11 justify-center ${
                     isSelected
                       ? "bg-accent border-accent"
                       : "bg-surface border-border"
@@ -308,16 +339,18 @@ export default function AddDocumentForm({
         {/* Size Label */}
         <View className="mb-4">
           <Text className="text-body-md text-primary font-semibold mb-2">
-            Size Label (Optional)
+            Size Label <Text className="text-secondary font-normal text-body-sm">(Optional)</Text>
           </Text>
           <TextInput
             value={sizeLabel}
             onChangeText={setSizeLabel}
             onFocus={() => setFocusedField("sizeLabel")}
             onBlur={() => setFocusedField(null)}
+            accessibilityLabel="Size label"
             placeholder="e.g. 2.4 MB"
             placeholderTextColor={colors.secondary}
             className="bg-surface rounded-xl text-body-md text-primary"
+            underlineColorAndroid="transparent"
             style={getInputStyles("sizeLabel", false)}
           />
         </View>
@@ -333,19 +366,21 @@ export default function AddDocumentForm({
         {/* Notes */}
         <View className="mb-4">
           <Text className="text-body-md text-primary font-semibold mb-2">
-            Notes (Optional)
+            Notes <Text className="text-secondary font-normal text-body-sm">(Optional)</Text>
           </Text>
           <TextInput
             value={notes}
             onChangeText={setNotes}
             onFocus={() => setFocusedField("notes")}
             onBlur={() => setFocusedField(null)}
+            accessibilityLabel="Notes"
             placeholder="Add any specific details here..."
             placeholderTextColor={colors.secondary}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
-            className="bg-surface rounded-xl text-body-md text-primary min-h-[90px]"
+            className="bg-surface rounded-xl text-body-md text-primary"
+            underlineColorAndroid="transparent"
             style={getInputStyles("notes", false)}
           />
         </View>
@@ -369,7 +404,9 @@ export default function AddDocumentForm({
         <View className="flex-row gap-3 pt-2">
           <Pressable
             onPress={onCancel}
-            className="flex-1 h-[52px] border border-border rounded-xl items-center justify-center bg-surface active:bg-background"
+            accessibilityRole="button"
+            accessibilityLabel="Cancel saving document"
+            className="flex-1 h-[52px] border border-border rounded-xl items-center justify-center bg-surface active:bg-background px-6"
             style={({ pressed }) => [pressed && styles.pressedScale]}
           >
             <Text className="text-button text-secondary font-semibold">
@@ -379,7 +416,9 @@ export default function AddDocumentForm({
 
           <Pressable
             onPress={handleSave}
-            className="h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-95"
+            accessibilityRole="button"
+            accessibilityLabel={initialValues ? "Update document details" : "Save document details"}
+            className="h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-95 px-6"
             style={({ pressed }) => [
               { flex: 2 },
               pressed && styles.pressedScale,

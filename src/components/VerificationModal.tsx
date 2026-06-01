@@ -284,6 +284,8 @@ export function VerificationModal({
                 {/* OTP 6-Digit Boxes */}
                 <Pressable
                   onPress={() => inputRef.current?.focus()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Enter 6-digit verification code"
                   className="flex-row justify-between w-full mb-[24px] relative"
                   style={{ gap: 8, width: "100%" }}
                 >
@@ -325,6 +327,7 @@ export function VerificationModal({
                     caretHidden
                     selectionColor="transparent"
                     pointerEvents="none"
+                    accessibilityLabel="Verification code"
                     style={[
                       StyleSheet.absoluteFill,
                       {
@@ -369,6 +372,9 @@ export function VerificationModal({
                     <View className="items-center" style={{ gap: 4 }}>
                       <Pressable
                         onPress={onResend}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Resend verification code"
                         style={({ pressed }) => ({
                           opacity: pressed ? 0.6 : 1,
                         })}
@@ -394,6 +400,9 @@ export function VerificationModal({
 
                 <Pressable
                   onPress={onClose}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel verification"
                   style={({ pressed }) => ({
                     marginTop: 8,
                     padding: 8,

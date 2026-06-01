@@ -69,6 +69,9 @@ export default function ExpiryBadge({
 
   return (
     <View
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`Expiry status: ${expiryLabel(expiryDate)}`}
       className={`flex-row items-center px-2 py-0.5 rounded-full ${bgClass}`}
     >
       <Feather

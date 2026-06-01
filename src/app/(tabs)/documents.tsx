@@ -1,5 +1,7 @@
 import DocumentCard from "@/components/DocumentCard";
 import EmptyState from "@/components/EmptyState";
+import ExpiryBadge from "@/components/ExpiryBadge";
+import { sortByExpiry, expiryUrgency } from "@/lib/date";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { DocumentCategory } from "@/types";
@@ -7,6 +9,8 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
+    Alert,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -15,56 +19,133 @@ import {
     View,
 } from "react-native";
 
-const CATEGORIES: { name: DocumentCategory; label: string }[] = [
-  { name: "Personal", label: "Personal" },
-  { name: "Work", label: "Work" },
-  { name: "Finance", label: "Finance" },
-  { name: "Health", label: "Health" },
-  { name: "Other", label: "Other" },
-];
-
 export default function DocumentsScreen() {
   const router = useRouter();
-  const { documents, toggleFavorite } = useDocumentStore();
+  const {
+    documents,
+    folders,
+    addFolder,
+    renameFolder,
+    deleteFolder,
+    toggleFavorite,
+  } = useDocumentStore();
 
   // Local UI State
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState<
     "All" | "PDF" | "Images" | "Docs" | "Others"
   >("All");
   const [selectedCategory, setSelectedCategory] =
     useState<DocumentCategory | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [sort, setSort] = useState<"name" | "expiry" | "added">("added");
+
+  // Folder Dialog Modal State
+  const [isFolderModalVisible, setIsFolderModalVisible] = useState(false);
+  const [folderModalMode, setFolderModalMode] = useState<"create" | "rename">("create");
+  const [targetFolderName, setTargetFolderName] = useState("");
+  const [folderInputName, setFolderInputName] = useState("");
 
   // Calculate category folder item counts dynamically
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      Personal: 0,
-      Work: 0,
-      Finance: 0,
-      Health: 0,
-      Other: 0,
-    };
+    const counts: Record<string, number> = {};
+    folders.forEach((f) => {
+      counts[f] = 0;
+    });
     documents.forEach((doc) => {
       if (counts[doc.category] !== undefined) {
         counts[doc.category]++;
+      } else {
+        // Fallback for documents in deleted folders
+        if (counts["Other"] !== undefined) {
+          counts["Other"]++;
+        }
       }
     });
     return counts;
-  }, [documents]);
+  }, [documents, folders]);
+
+  const openFolderModal = (folderName: string | null) => {
+    if (folderName) {
+      setFolderModalMode("rename");
+      setTargetFolderName(folderName);
+      setFolderInputName(folderName);
+    } else {
+      setFolderModalMode("create");
+      setTargetFolderName("");
+      setFolderInputName("");
+    }
+    setIsFolderModalVisible(true);
+  };
+
+  const handleSaveFolder = () => {
+    const name = folderInputName.trim();
+    if (!name) {
+      Alert.alert("Validation Error", "Folder name cannot be empty.");
+      return;
+    }
+    if (folderModalMode === "create") {
+      const success = addFolder(name);
+      if (!success) {
+        Alert.alert("Folder Exists", "A folder with this name already exists.");
+        return;
+      }
+    } else {
+      const success = renameFolder(targetFolderName, name);
+      if (!success) {
+        Alert.alert("Folder Exists", "A folder with this name already exists.");
+        return;
+      }
+    }
+    setIsFolderModalVisible(false);
+  };
+
+  const handleFolderOptions = (folderName: string) => {
+    const count = categoryCounts[folderName] || 0;
+    Alert.alert(
+      `Manage Folder: ${folderName}`,
+      "Choose an action for this folder.",
+      [
+        {
+          text: "✏️ Rename Folder",
+          onPress: () => openFolderModal(folderName),
+        },
+        {
+          text: "🗑️ Delete Folder",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Delete Folder",
+              count > 0
+                ? `Are you sure you want to delete the folder "${folderName}"? The ${count} document(s) inside will be moved to the "Other" folder.`
+                : `Are you sure you want to delete the folder "${folderName}"?`,
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: () => {
+                    deleteFolder(folderName);
+                    if (selectedCategory === folderName) {
+                      setSelectedCategory(null);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    );
+  };
 
   // Combined documents filtering logic
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) => {
-      // 1. Search Query filter (case-insensitive name check)
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        if (!doc.name.toLowerCase().includes(query)) {
-          return false;
-        }
-      }
-
-      // 2. File Type filter tab
+      // 1. File Type filter tab
       if (selectedTab !== "All") {
         const tabToTypeMap: Record<string, string> = {
           PDF: "pdf",
@@ -77,7 +158,7 @@ export default function DocumentsScreen() {
         }
       }
 
-      // 3. Category folder filter
+      // 2. Category folder filter
       if (selectedCategory) {
         if (doc.category !== selectedCategory) {
           return false;
@@ -86,19 +167,24 @@ export default function DocumentsScreen() {
 
       return true;
     });
-  }, [documents, searchQuery, selectedTab, selectedCategory]);
+  }, [documents, selectedTab, selectedCategory]);
 
-  // Sort filtered documents by creation date descending (latest first)
+  // Sort filtered documents based on selected sort option
   const sortedDocuments = useMemo(() => {
+    if (sort === "name") {
+      return [...filteredDocuments].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (sort === "expiry") {
+      return sortByExpiry(filteredDocuments);
+    }
     return [...filteredDocuments].sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [filteredDocuments]);
+  }, [filteredDocuments, sort]);
 
   // Determine whether to show the Category Folders layout
-  // Only show when there is no search query, selected tab is "All", and no category is selected
+  // Only show when selected tab is "All" and no category is selected
   const showFolders =
-    searchQuery.trim() === "" &&
     selectedTab === "All" &&
     selectedCategory === null;
 
@@ -116,6 +202,8 @@ export default function DocumentsScreen() {
               <Pressable
                 onPress={() => setViewMode("grid")}
                 accessibilityLabel="Grid view"
+                accessibilityRole="button"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 className={`w-9 h-9 items-center justify-center rounded-lg ${
                   viewMode === "grid" ? "bg-soft-accent" : "bg-transparent"
                 }`}
@@ -129,6 +217,8 @@ export default function DocumentsScreen() {
               <Pressable
                 onPress={() => setViewMode("list")}
                 accessibilityLabel="List view"
+                accessibilityRole="button"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 className={`w-9 h-9 items-center justify-center rounded-lg ${
                   viewMode === "list" ? "bg-soft-accent" : "bg-transparent"
                 }`}
@@ -142,34 +232,7 @@ export default function DocumentsScreen() {
             </View>
           </View>
 
-          {/* Search bar */}
-          <View className="px-6 mb-6">
-            <View className="flex-row items-center bg-surface rounded-xl border border-border px-4 py-1">
-              <Feather name="search" size={18} color={colors.secondary} />
-              <TextInput
-                value={searchQuery}
-                onChangeText={(text) => {
-                  setSearchQuery(text);
-                  // Clearing category filter if typing to search across all folders
-                  if (selectedCategory && text !== "") {
-                    setSelectedCategory(null);
-                  }
-                }}
-                placeholder="Search documents..."
-                placeholderTextColor={colors.secondary}
-                className="flex-1 text-body-md text-primary ml-3 h-11"
-              />
-              {searchQuery.length > 0 && (
-                <Pressable
-                  onPress={() => setSearchQuery("")}
-                  hitSlop={8}
-                  className="w-8 h-8 items-center justify-center"
-                >
-                  <Feather name="x" size={16} color={colors.secondary} />
-                </Pressable>
-              )}
-            </View>
-          </View>
+
 
           {/* Filter Tabs (Horizontal Scroll) */}
           <View className="mb-6">
@@ -191,7 +254,9 @@ export default function DocumentsScreen() {
                           setSelectedCategory(null);
                         }
                       }}
-                      className={`mr-2.5 px-5 py-2.5 rounded-full border ${
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isActive }}
+                      className={`mr-2.5 px-5 rounded-full border min-h-11 min-w-11 justify-center ${
                         isActive
                           ? "bg-accent border-accent"
                           : "bg-surface border-border"
@@ -211,6 +276,41 @@ export default function DocumentsScreen() {
             </ScrollView>
           </View>
 
+          {/* Sort Control Row */}
+          {!showFolders && (
+            <View className="px-6 mb-6 flex-row items-center justify-start gap-2">
+              {(["name", "expiry", "added"] as const).map((type) => {
+                const isActive = sort === type;
+                const label =
+                  type === "name"
+                    ? "Name"
+                    : type === "expiry"
+                    ? "Expiry"
+                    : "Date Added";
+                return (
+                  <Pressable
+                    key={type}
+                    onPress={() => setSort(type)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sort by ${type}`}
+                    accessibilityState={{ selected: isActive }}
+                    className={`px-4 rounded-full min-h-11 justify-center ${
+                      isActive ? "bg-accent" : "bg-transparent"
+                    }`}
+                  >
+                    <Text
+                      className={`text-body-md font-semibold ${
+                        isActive ? "text-white" : "text-secondary"
+                      }`}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           {/* Active Folder/Category Header Indicator */}
           {selectedCategory && (
             <View className="px-6 mb-5">
@@ -223,7 +323,9 @@ export default function DocumentsScreen() {
                 </View>
                 <Pressable
                   onPress={() => setSelectedCategory(null)}
-                  hitSlop={8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back to folder list"
                   className="flex-row items-center bg-surface border border-border/60 rounded-lg px-2 py-1 active:bg-border/20"
                 >
                   <Feather
@@ -242,37 +344,78 @@ export default function DocumentsScreen() {
           {/* Category Folders layout */}
           {showFolders && (
             <View className="px-6 mb-6">
+              {/* Folders Section Title & Create Button */}
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-h2 text-primary font-semibold">Folders</Text>
+                <Pressable
+                  onPress={() => openFolderModal(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create new folder"
+                  className="flex-row items-center bg-soft-accent px-3 rounded-lg active:opacity-80 min-h-11 justify-center"
+                >
+                  <Feather name="plus" size={14} color={colors.accent} />
+                  <Text className="text-caption text-accent ml-1 font-semibold">
+                    New Folder
+                  </Text>
+                </Pressable>
+              </View>
+
               <View
                 className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
                 style={styles.foldersShadow}
               >
-                {CATEGORIES.map((cat, index) => {
-                  const count = categoryCounts[cat.name] || 0;
-                  const isLast = index === CATEGORIES.length - 1;
+                {folders.map((folderName, index) => {
+                  const count = categoryCounts[folderName] || 0;
+                  const isLast = index === folders.length - 1;
                   return (
-                    <Pressable
-                      key={cat.name}
-                      onPress={() => setSelectedCategory(cat.name)}
-                      className="flex-row items-center px-4 py-4 active:bg-background border-b border-border/40"
+                    <View
+                      key={folderName}
+                      className="flex-row items-center border-b border-border/40"
                       style={isLast ? { borderBottomWidth: 0 } : undefined}
                     >
-                      <View className="w-11 h-11 rounded-xl bg-soft-accent items-center justify-center">
-                        <Feather
-                          name="folder"
-                          size={22}
-                          color={colors.accent}
-                        />
+                      <Pressable
+                        onPress={() => setSelectedCategory(folderName)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Folder: ${folderName}, ${count} ${count === 1 ? "item" : "items"}`}
+                        className="flex-1 flex-row items-center px-4 py-4 active:bg-background"
+                      >
+                        <View className="w-11 h-11 rounded-xl bg-soft-accent items-center justify-center">
+                          <Feather
+                            name="folder"
+                            size={22}
+                            color={colors.accent}
+                          />
+                        </View>
+                        <View className="flex-1 ml-3">
+                          <Text className="text-body-lg text-primary font-semibold">
+                            {folderName}
+                          </Text>
+                          <Text className="text-caption text-secondary mt-0.5">
+                            {count} {count === 1 ? "item" : "items"}
+                          </Text>
+                        </View>
+                      </Pressable>
+                      <View className="flex-row items-center pr-3">
+                        <Pressable
+                          onPress={() => handleFolderOptions(folderName)}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`More options for folder ${folderName}`}
+                          className="w-10 h-10 items-center justify-center rounded-full active:bg-border/25 mr-1"
+                        >
+                          <Feather name="more-vertical" size={18} color="#B3B3B3" />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setSelectedCategory(folderName)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open folder ${folderName}`}
+                          className="w-8 h-10 items-center justify-center"
+                        >
+                          <Feather name="chevron-right" size={20} color="#B3B3B3" />
+                        </Pressable>
                       </View>
-                      <View className="flex-1 ml-3">
-                        <Text className="text-body-lg text-primary font-semibold">
-                          {cat.label}
-                        </Text>
-                        <Text className="text-caption text-secondary mt-0.5">
-                          {count} {count === 1 ? "item" : "items"}
-                        </Text>
-                      </View>
-                      <Feather name="chevron-right" size={20} color="#B3B3B3" />
-                    </Pressable>
+                    </View>
                   );
                 })}
               </View>
@@ -291,9 +434,12 @@ export default function DocumentsScreen() {
           {/* Documents List or Grid View */}
           {sortedDocuments.length > 0 ? (
             viewMode === "grid" ? (
-              <View className="flex-row flex-wrap px-4">
+              <View
+                className="px-4"
+                style={{ flexDirection: "row", flexWrap: "wrap" }}
+              >
                 {sortedDocuments.map((doc) => (
-                  <View key={doc.id} style={{ width: "50%" }}>
+                  <View key={doc.id} style={{ width: "50%" }} className="relative">
                     <DocumentCard
                       doc={doc}
                       viewMode="grid"
@@ -305,6 +451,15 @@ export default function DocumentsScreen() {
                       }
                       onFavoritePress={() => toggleFavorite(doc.id)}
                     />
+                    {sort === "expiry" && expiryUrgency(doc.expiryDate) === "safe" && (
+                      <View
+                        className="absolute"
+                        style={{ bottom: 22, left: 22 }}
+                        pointerEvents="none"
+                      >
+                        <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={false} />
+                      </View>
+                    )}
                   </View>
                 ))}
               </View>
@@ -314,18 +469,28 @@ export default function DocumentsScreen() {
                 style={styles.listShadow}
               >
                 {sortedDocuments.map((doc, idx) => (
-                  <DocumentCard
-                    key={doc.id}
-                    doc={doc}
-                    viewMode="list"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/document/[id]",
-                        params: { id: doc.id },
-                      } as never)
-                    }
-                    onFavoritePress={() => toggleFavorite(doc.id)}
-                  />
+                  <View key={doc.id} className="relative">
+                    <DocumentCard
+                      doc={doc}
+                      viewMode="list"
+                      onPress={() =>
+                        router.push({
+                          pathname: "/document/[id]",
+                          params: { id: doc.id },
+                        } as never)
+                      }
+                      onFavoritePress={() => toggleFavorite(doc.id)}
+                    />
+                    {sort === "expiry" && expiryUrgency(doc.expiryDate) === "safe" && (
+                      <View
+                        className="absolute right-12"
+                        style={{ top: 18 }}
+                        pointerEvents="none"
+                      >
+                        <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={false} />
+                      </View>
+                    )}
+                  </View>
                 ))}
               </View>
             )
@@ -339,17 +504,6 @@ export default function DocumentsScreen() {
                     message="Start by adding a document"
                     actionLabel="Add Document"
                     onAction={() => router.push("/add-document" as never)}
-                  />
-                );
-              }
-              if (searchQuery.trim()) {
-                return (
-                  <EmptyState
-                    icon="search-outline"
-                    title="No results found"
-                    message="Try a different search term"
-                    actionLabel="Clear Search"
-                    onAction={() => setSearchQuery("")}
                   />
                 );
               }
@@ -371,7 +525,6 @@ export default function DocumentsScreen() {
                   message="No matches found for your current filters."
                   actionLabel="Clear Filters"
                   onAction={() => {
-                    setSearchQuery("");
                     setSelectedTab("All");
                     setSelectedCategory(null);
                   }}
@@ -396,6 +549,55 @@ export default function DocumentsScreen() {
           </Pressable>
         </View>
       </View>
+
+      {/* Folder Create/Rename Custom Modal */}
+      <Modal
+        visible={isFolderModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsFolderModalVisible(false)}
+      >
+        <View style={styles.modalOverlay} className="flex-1 items-center justify-center px-6">
+          <View className="bg-surface w-full p-6 rounded-2xl border border-border/40" style={styles.listShadow}>
+            <Text className="text-h2 text-primary font-bold mb-4">
+              {folderModalMode === "create" ? "Create New Folder" : "Rename Folder"}
+            </Text>
+
+            <View className="mb-6">
+              <Text className="text-body-md text-primary font-semibold mb-2">Folder Name</Text>
+              <TextInput
+                value={folderInputName}
+                onChangeText={setFolderInputName}
+                accessibilityLabel="Folder name"
+                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-body-lg text-primary"
+                placeholder="e.g. Work Documents"
+                autoFocus
+                placeholderTextColor={colors.secondary}
+              />
+            </View>
+
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => setIsFolderModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel folder creation or rename"
+                className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+              >
+                <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveFolder}
+                accessibilityRole="button"
+                className="flex-1 bg-accent py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+              >
+                <Text className="text-body-lg font-semibold text-white">
+                  {folderModalMode === "create" ? "Create" : "Save"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -417,5 +619,9 @@ const styles = StyleSheet.create({
   },
   fabWrap: {
     zIndex: 50,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
   },
 });
