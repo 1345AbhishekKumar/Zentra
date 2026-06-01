@@ -307,6 +307,7 @@ export default function ForgotPassword() {
                         autoCapitalize="none"
                         autoCorrect={false}
                         selectionColor="#3525cd"
+                        accessibilityLabel="Email address"
                         className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
                         style={{
                           fontFamily: "Inter",
@@ -334,6 +335,8 @@ export default function ForgotPassword() {
                     <Pressable
                       onPress={handleSendCode}
                       disabled={isLoading || !isLoaded}
+                      accessibilityRole="button"
+                      accessibilityLabel="Send Reset Code"
                       style={({ pressed }) => [
                         {
                           width: "100%",
@@ -387,6 +390,7 @@ export default function ForgotPassword() {
                         autoCapitalize="none"
                         autoCorrect={false}
                         selectionColor="#3525cd"
+                        accessibilityLabel="Reset verification code"
                         className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
                         style={{
                           fontFamily: "Inter",
@@ -420,6 +424,9 @@ export default function ForgotPassword() {
                         <Pressable
                           onPress={handleResendCode}
                           disabled={isLoading}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Resend verification code"
                           style={({ pressed }) => ({
                             opacity: pressed ? 0.6 : 1,
                           })}
@@ -442,6 +449,8 @@ export default function ForgotPassword() {
                     <Pressable
                       onPress={handleVerifyCode}
                       disabled={isLoading || !isLoaded}
+                      accessibilityRole="button"
+                      accessibilityLabel="Verify Code"
                       style={({ pressed }) => [
                         {
                           width: "100%",
@@ -493,6 +502,7 @@ export default function ForgotPassword() {
                         onBlur={() => setIsPasswordFocused(false)}
                         secureTextEntry={!showPassword}
                         selectionColor="#3525cd"
+                        accessibilityLabel="New Password"
                         className="w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] text-[16px] py-[12px]"
                         style={{
                           fontFamily: "Inter",
@@ -509,6 +519,9 @@ export default function ForgotPassword() {
                       />
                       <Pressable
                         onPress={() => setShowPassword(!showPassword)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                         style={({ pressed }) => ({
                           position: "absolute",
                           right: 16,
@@ -540,6 +553,8 @@ export default function ForgotPassword() {
                     <Pressable
                       onPress={handleResetPassword}
                       disabled={isLoading || !isLoaded}
+                      accessibilityRole="button"
+                      accessibilityLabel="Reset Password"
                       style={({ pressed }) => [
                         {
                           width: "100%",
@@ -571,7 +586,12 @@ export default function ForgotPassword() {
               {/* Footer Link */}
               <View className="flex-row justify-center pt-[8px] w-full" style={{ width: "100%" }}>
                 <Link href="/sign-in" asChild>
-                  <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
+                  <Pressable
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="link"
+                    accessibilityLabel="Back to Log In"
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                  >
                     <Text className="text-[#3525cd] text-[16px] font-semibold" style={{ fontFamily: "Inter", lineHeight: 24 }}>
                       Back to Log In
                     </Text>

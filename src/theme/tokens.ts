@@ -1,6 +1,6 @@
 export const colors = {
   primary: "#111111",
-  secondary: "#727272",
+  secondary: "#636363",
   accent: "#4F46E5",
   softAccent: "#EEF2FF",
   success: "#22C55E",

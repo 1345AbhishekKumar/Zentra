@@ -276,6 +276,7 @@ export default function SignIn() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       selectionColor="#3525cd"
+                      accessibilityLabel="Email address"
                       className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
                       style={{
                         fontFamily: "Inter",
@@ -320,6 +321,9 @@ export default function SignIn() {
                     </Text>
                     <Link href="/forgot-password" asChild>
                       <Pressable
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        accessibilityRole="link"
+                        accessibilityLabel="Forgot password"
                         style={({ pressed }) => ({
                           opacity: pressed ? 0.6 : 1,
                         })}
@@ -349,6 +353,7 @@ export default function SignIn() {
                       onBlur={() => setIsPasswordFocused(false)}
                       secureTextEntry={!showPassword}
                       selectionColor="#3525cd"
+                      accessibilityLabel="Password"
                       className="w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] text-[16px] py-[12px]"
                       style={{
                         fontFamily: "Inter",
@@ -374,6 +379,9 @@ export default function SignIn() {
                     />
                     <Pressable
                       onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                       style={({ pressed }) => ({
                         position: "absolute",
                         right: 16,
@@ -405,6 +413,8 @@ export default function SignIn() {
                   <Pressable
                     onPress={handleSignIn}
                     disabled={isLoading || !isLoaded}
+                    accessibilityRole="button"
+                    accessibilityLabel="Log In"
                     style={({ pressed }) => [
                       styles.buttonShadow,
                       {
@@ -453,6 +463,8 @@ export default function SignIn() {
                 <Pressable
                   onPress={onGoogleSignIn}
                   disabled={isGoogleLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with Google"
                   style={({ pressed }) => ({
                     width: "100%",
                     height: 52,
@@ -501,6 +513,9 @@ export default function SignIn() {
                 </Text>
                 <Link href="/sign-up" asChild>
                   <Pressable
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="link"
+                    accessibilityLabel="Sign Up"
                     style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
                   >
                     <Text

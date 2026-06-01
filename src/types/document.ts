@@ -1,4 +1,4 @@
-export type DocumentCategory = "Personal" | "Work" | "Finance" | "Health" | "Other";
+export type DocumentCategory = 'Personal' | 'Work' | 'Finance' | 'Health' | 'Other' | (string & {});
 
 export type DocumentFileType = "pdf" | "image" | "doc" | "other";
 

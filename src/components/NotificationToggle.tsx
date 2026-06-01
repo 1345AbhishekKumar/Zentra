@@ -7,7 +7,7 @@ import { Feather } from "@expo/vector-icons";
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
 interface NotificationToggleProps {
-  documentId: string;
+  documentId?: string;
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
   label?: string;
@@ -66,6 +66,9 @@ export default function NotificationToggle({
         onValueChange={handleToggle}
         trackColor={{ false: "#E5E7EB", true: colors.accent }}
         thumbColor={enabled ? "#FFFFFF" : "#F3F4F6"}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: enabled }}
+        accessibilityLabel={label}
       />
     </View>
   );

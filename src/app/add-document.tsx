@@ -5,7 +5,9 @@ import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { saveFilePermanently } from "@/lib/share";
 import {
+    AccessibilityInfo,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -17,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function AddDocumentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { addDocument, notificationSettings } = useDocumentStore();
+  const { addDocument, folders, notificationSettings } = useDocumentStore();
   const goBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -27,8 +29,17 @@ export default function AddDocumentScreen() {
   };
 
   const handleFormSubmit = async (newDoc: ZentraDocument) => {
-    // 1. Persist the document in the local store
+    // 1. Save file permanently if there is an attachment
+    if (newDoc.localUri) {
+      const permanentUri = await saveFilePermanently(newDoc.localUri, newDoc.name);
+      if (permanentUri) {
+        newDoc.localUri = permanentUri;
+      }
+    }
+
+    // 2. Persist the document in the local store
     addDocument(newDoc);
+    AccessibilityInfo.announceForAccessibility("Document saved");
 
     // 2. Schedule notifications on the device if enabled
     if (newDoc.notificationsEnabled && notificationSettings.globalEnabled) {
@@ -59,7 +70,7 @@ export default function AddDocumentScreen() {
         <Text className="text-h1 text-primary font-bold">Add Document</Text>
         <Pressable
           onPress={goBack}
-          hitSlop={12}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel="Close add document modal"
           className="w-10 h-10 items-center justify-center rounded-full active:bg-background"
@@ -68,9 +79,14 @@ export default function AddDocumentScreen() {
         </Pressable>
       </View>
 
-      <View className="flex-1 px-6 pt-5">
-        <AddDocumentForm onSubmit={handleFormSubmit} onCancel={goBack} />
+      <View className="flex-1 pt-2">
+        <AddDocumentForm
+          onSubmit={handleFormSubmit}
+          onCancel={goBack}
+          folders={folders}
+        />
       </View>
     </KeyboardAvoidingView>
   );
 }
+

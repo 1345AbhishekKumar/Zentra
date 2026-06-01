@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -51,10 +51,15 @@ function getFileVisuals(fileType: string): FileVisuals {
 export default function AlertsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const documents = useDocumentStore((state) => state.documents);
+  const {
+    documents,
+    readAlerts = [],
+    markAlertAsRead,
+    markAllAlertsAsRead,
+  } = useDocumentStore();
 
-  // Local state for tracking "read" alert IDs within this session
-  const [readAlerts, setReadAlerts] = useState<Set<string>>(new Set());
+  // Memoize Set for fast O(1) lookups
+  const readAlertsSet = useMemo(() => new Set(readAlerts), [readAlerts]);
 
   const goBack = () => {
     if (router.canGoBack()) {
@@ -98,27 +103,15 @@ export default function AlertsScreen() {
   ];
 
   const totalAlertsCount = allListedDocs.length;
-  const hasUnread = allListedDocs.some((doc) => !readAlerts.has(doc.id));
+  const hasUnread = allListedDocs.some((doc) => !readAlertsSet.has(doc.id));
 
-  // Compute stat counts using expiryUrgency helper across all docs
-  const expiredCount = documents.filter(
-    (doc) => expiryUrgency(doc.expiryDate) === "expired"
-  ).length;
-  
-  const criticalCount = documents.filter(
-    (doc) => expiryUrgency(doc.expiryDate) === "critical"
-  ).length;
-  
-  const warningCount = documents.filter(
-    (doc) => expiryUrgency(doc.expiryDate) === "warning"
-  ).length;
+  // Compute stat counts using the same bucketing logic as the list sections
+  const expiredCount = expiredDocs.length;
+  const criticalCount = thisWeekDocs.length;
+  const warningCount = thisMonthDocs.length;
 
   const handlePressRow = (docId: string) => {
-    setReadAlerts((prev) => {
-      const next = new Set(prev);
-      next.add(docId);
-      return next;
-    });
+    markAlertAsRead(docId);
     router.push({
       pathname: "/document/[id]",
       params: { id: docId },
@@ -127,7 +120,7 @@ export default function AlertsScreen() {
 
   const handleMarkAllRead = () => {
     const allIds = allListedDocs.map((doc) => doc.id);
-    setReadAlerts(new Set(allIds));
+    markAllAlertsAsRead(allIds);
   };
 
   const renderSection = (title: string, docs: ZentraDocument[]) => {
@@ -140,7 +133,7 @@ export default function AlertsScreen() {
         <View className="gap-2.5">
           {docs.map((doc) => {
             const { iconName, iconColor, bgColor } = getFileVisuals(doc.fileType);
-            const isUnread = !readAlerts.has(doc.id);
+            const isUnread = !readAlertsSet.has(doc.id);
             return (
               <Pressable
                 key={doc.id}
@@ -198,7 +191,8 @@ export default function AlertsScreen() {
       >
         <Pressable
           onPress={goBack}
-          hitSlop={12}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
           accessibilityLabel="Go back"
           className="w-10 h-10 items-center justify-center rounded-full active:bg-background"
         >
@@ -210,7 +204,8 @@ export default function AlertsScreen() {
         <Pressable
           onPress={handleMarkAllRead}
           disabled={!hasUnread || totalAlertsCount === 0}
-          hitSlop={8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
           accessibilityLabel="Mark all alerts as read"
           className={hasUnread && totalAlertsCount > 0 ? "active:opacity-70" : "opacity-40"}
         >

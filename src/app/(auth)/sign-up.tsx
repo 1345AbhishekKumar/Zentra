@@ -280,6 +280,7 @@ export default function SignUp() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       selectionColor="#3525cd"
+                      accessibilityLabel="Email address"
                       className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
                       style={{
                         fontFamily: "Inter",
@@ -334,6 +335,7 @@ export default function SignUp() {
                       onBlur={() => setIsPasswordFocused(false)}
                       secureTextEntry={!showPassword}
                       selectionColor="#3525cd"
+                      accessibilityLabel="Password"
                       className={`w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] ${
                         showPassword
                           ? "text-[16px] py-[12px]"
@@ -363,6 +365,9 @@ export default function SignUp() {
                     />
                     <Pressable
                       onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                       style={({ pressed }) => ({
                         position: "absolute",
                         right: 16,
@@ -394,6 +399,8 @@ export default function SignUp() {
                   <Pressable
                     onPress={handleSignUp}
                     disabled={isLoading || !isLoaded}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sign Up"
                     style={({ pressed }) => [
                       styles.buttonShadow,
                       {
@@ -445,6 +452,8 @@ export default function SignUp() {
                 <Pressable
                   onPress={onGoogleSignIn}
                   disabled={isGoogleLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign up with Google"
                   style={({ pressed }) => ({
                     width: "100%",
                     height: 52,
@@ -493,6 +502,9 @@ export default function SignUp() {
                 </Text>
                 <Link href="/sign-in" asChild>
                   <Pressable
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="link"
+                    accessibilityLabel="Log In"
                     style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
                   >
                     <Text

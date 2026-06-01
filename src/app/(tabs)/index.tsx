@@ -7,8 +7,20 @@ import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { isToday, isYesterday, parseISO } from "date-fns";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import ActionSheet from "@/components/ActionSheet";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import { cancelDocumentNotifications } from "@/lib/notifications";
+import React, { useMemo, useState } from "react";
+import * as FileSystem from "expo-file-system/legacy";
+import {
+  AccessibilityInfo,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 // ---------------------------------------------------------------------------
 // Icon/color mapping by document name, then file type, then category
@@ -106,9 +118,15 @@ function formatAddedDate(dateStr: string): string {
 function QuickAccessCard({
   doc,
   onPress,
+  isSelectionMode = false,
+  isSelected = false,
+  onLongPress,
 }: {
   doc: ZentraDocument;
   onPress: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onLongPress?: () => void;
 }) {
   const { iconName, iconColor, bgColor } = getDocVisuals(
     doc.name,
@@ -121,6 +139,8 @@ function QuickAccessCard({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={200}
       accessibilityRole="button"
       accessibilityLabel={`Open ${doc.name}`}
       className="bg-surface rounded-2xl p-4 mr-3 active:opacity-90"
@@ -129,13 +149,24 @@ function QuickAccessCard({
         pressed && styles.pressedScale,
       ]}
     >
-      <View
-        className="w-11 h-11 rounded-full items-center justify-center mb-3"
-        style={{ backgroundColor: bgColor }}
-      >
-        <Feather name={iconName} size={20} color={iconColor} />
+      <View className="flex-row justify-between items-start mb-3">
+        <View
+          className="w-11 h-11 rounded-full items-center justify-center"
+          style={{ backgroundColor: bgColor }}
+        >
+          <Feather name={iconName} size={20} color={iconColor} />
+        </View>
+        {isSelectionMode && (
+          <View className="w-8 h-8 items-center justify-center">
+            <Feather
+              name={isSelected ? "check-circle" : "circle"}
+              size={20}
+              color={isSelected ? colors.accent : "#B3B3B3"}
+            />
+          </View>
+        )}
       </View>
-      <Text numberOfLines={1} className="text-body-lg text-primary">
+      <Text numberOfLines={1} className="text-body-lg text-primary font-semibold">
         {label}
       </Text>
       <Text className="text-caption text-secondary mt-1">{meta}</Text>
@@ -150,10 +181,18 @@ function RecentDocRow({
   doc,
   isLast,
   onPress,
+  onMorePress,
+  isSelectionMode = false,
+  isSelected = false,
+  onLongPress,
 }: {
   doc: ZentraDocument;
   isLast: boolean;
   onPress: () => void;
+  onMorePress: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onLongPress?: () => void;
 }) {
   const { iconName, iconColor, bgColor } = getDocVisuals(
     doc.name,
@@ -165,6 +204,8 @@ function RecentDocRow({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={200}
       accessibilityRole="button"
       accessibilityLabel={`Open ${doc.name}`}
       className="flex-row items-center px-4 py-3 active:bg-background"
@@ -178,20 +219,31 @@ function RecentDocRow({
       </View>
 
       <View className="flex-1 ml-3 mr-2">
-        <Text numberOfLines={1} className="text-body-lg text-primary">
+        <Text numberOfLines={1} className="text-body-lg text-primary font-medium">
           {doc.name}
         </Text>
         <Text className="text-caption text-secondary mt-0.5">{meta}</Text>
       </View>
 
-      <Pressable
-        onPress={() => {}}
-        hitSlop={8}
-        accessibilityLabel={`More options for ${doc.name}`}
-        className="w-9 h-9 rounded-full items-center justify-center active:bg-soft-accent"
-      >
-        <Feather name="more-horizontal" size={20} color={colors.secondary} />
-      </Pressable>
+      {isSelectionMode ? (
+        <View className="w-9 h-9 items-center justify-center mr-1">
+          <Feather
+            name={isSelected ? "check-circle" : "circle"}
+            size={22}
+            color={isSelected ? colors.accent : "#B3B3B3"}
+          />
+        </View>
+      ) : (
+        <Pressable
+          onPress={onMorePress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={`More options for ${doc.name}`}
+          className="w-9 h-9 rounded-full items-center justify-center active:bg-soft-accent"
+        >
+          <Feather name="more-horizontal" size={20} color={colors.secondary} />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -201,19 +253,109 @@ function RecentDocRow({
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
   const router = useRouter();
-  const { documents, addDocument } = useDocumentStore();
+  const {
+    documents,
+    addDocument,
+    deleteDocument,
+    deleteMultipleDocuments,
+  } = useDocumentStore();
+  const [selectedDoc, setSelectedDoc] = useState<ZentraDocument | null>(null);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<ZentraDocument | null>(null);
 
-  const sorted = [...documents].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  // Selection state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteModalVisible, setIsBulkDeleteModalVisible] = useState(false);
 
-  const recentDocs = sorted.slice(0, 4);
-  const quickAccessDocs = sorted
-    .filter(
-      (doc) =>
-        doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
-    )
-    .slice(0, 4);
+  const toggleDocumentSelection = (id: string) => {
+    setSelectedDocumentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleStartSelectionWithDoc = (id: string) => {
+    setIsSelectionMode(true);
+    setSelectedDocumentIds(new Set([id]));
+  };
+
+  const handleExitSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedDocumentIds(new Set());
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    try {
+      const docIds = Array.from(selectedDocumentIds);
+
+      // 1. Cancel notifications for each selected document
+      await Promise.all(docIds.map((id) => cancelDocumentNotifications(id)));
+
+      // 2. Delete local files for each selected document
+      const permanentDirectory = FileSystem.documentDirectory;
+      for (const id of docIds) {
+        const doc = documents.find((d) => d.id === id);
+        if (doc?.localUri && permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
+          try {
+            await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
+          } catch (e) {
+            console.warn("Failed to delete file on bulk delete:", e);
+          }
+        }
+      }
+
+      // 3. Call store actions
+      if (docIds.length > 0) {
+        deleteMultipleDocuments(docIds);
+      }
+
+      // 4. Update accessibility announcements and state
+      AccessibilityInfo.announceForAccessibility(`Deleted ${docIds.length} documents`);
+    } catch (error) {
+      console.error("Bulk delete failed:", error);
+    } finally {
+      setIsBulkDeleteModalVisible(false);
+      handleExitSelection();
+    }
+  };
+
+  const handleDeleteDoc = (doc: ZentraDocument) => {
+    setDocToDelete(doc);
+    setIsDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!docToDelete) return;
+    await cancelDocumentNotifications(docToDelete.id);
+    deleteDocument(docToDelete.id);
+    AccessibilityInfo.announceForAccessibility("Document deleted");
+    setDocToDelete(null);
+  };
+
+  const sorted = useMemo(() => {
+    return [...documents].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
+  }, [documents]);
+
+  const recentDocs = useMemo(() => {
+    return sorted.slice(0, 4);
+  }, [sorted]);
+
+  const quickAccessDocs = useMemo(() => {
+    return sorted
+      .filter(
+        (doc) =>
+          doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
+      )
+      .slice(0, 4);
+  }, [sorted, recentDocs]);
 
   const canSeedDemo = __DEV__;
 
@@ -330,16 +472,22 @@ export default function HomeScreen() {
           </View>
 
           {/* Search bar */}
-          <View className="px-6 mb-6">
-            <Pressable
-              onPress={() => router.navigate("/(tabs)/documents")}
-              accessibilityRole="search"
-              accessibilityLabel="Search documents and folders"
-              className="flex-row items-center bg-surface rounded-full border border-border pl-4 pr-1.5 py-1.5 active:opacity-90"
-            >
+          <Pressable
+            onPress={() => {
+              if (!isSelectionMode) {
+                router.push("/search" as any);
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Search documents"
+            className={`px-6 mb-6 active:opacity-90 ${isSelectionMode ? "opacity-40" : ""}`}
+            style={({ pressed }) => [pressed && !isSelectionMode && styles.pressedScale]}
+            disabled={isSelectionMode}
+          >
+            <View className="flex-row items-center bg-surface rounded-full border border-border pl-4 pr-1.5 py-1.5 h-12">
               <Feather name="search" size={18} color={colors.secondary} />
-              <Text className="text-body-md text-secondary ml-3 flex-1">
-                Search documents, folders...
+              <Text className="flex-1 text-body-md text-secondary ml-3">
+                Search documents...
               </Text>
               <View
                 className="w-9 h-9 rounded-xl bg-accent items-center justify-center"
@@ -347,8 +495,8 @@ export default function HomeScreen() {
               >
                 <Feather name="search" size={15} color="#FFFFFF" />
               </View>
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
 
           {documents.length === 0 ? (
             // ---------------------------------------------------------------
@@ -386,11 +534,11 @@ export default function HomeScreen() {
               {quickAccessDocs.length > 0 && (
                 <View className="mb-8">
                   <View className="flex-row justify-between items-center px-6 mb-4">
-                    <Text className="text-h2 text-primary">Quick Access</Text>
+                    <Text className="text-h2 text-primary font-semibold">Quick Access</Text>
                     <Pressable
                       onPress={() => router.navigate("/(tabs)/documents")}
-                      accessibilityRole="link"
-                      hitSlop={8}
+                      accessibilityRole="button"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       className="active:opacity-70"
                     >
                       <Text className="text-body-md text-accent font-semibold">
@@ -408,12 +556,19 @@ export default function HomeScreen() {
                       <QuickAccessCard
                         key={doc.id}
                         doc={doc}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/document/[id]",
-                            params: { id: doc.id },
-                          } as never)
-                        }
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedDocumentIds.has(doc.id)}
+                        onPress={() => {
+                          if (isSelectionMode) {
+                            toggleDocumentSelection(doc.id);
+                          } else {
+                            router.push({
+                              pathname: "/document/[id]",
+                              params: { id: doc.id },
+                            } as never);
+                          }
+                        }}
+                        onLongPress={() => handleStartSelectionWithDoc(doc.id)}
                       />
                     ))}
                   </ScrollView>
@@ -422,7 +577,7 @@ export default function HomeScreen() {
 
               {/* Recent Documents */}
               <View className="px-6 mb-6">
-                <Text className="text-h2 text-primary mb-4">
+                <Text className="text-h2 text-primary mb-4 font-semibold">
                   Recent Documents
                 </Text>
 
@@ -435,12 +590,20 @@ export default function HomeScreen() {
                       key={doc.id}
                       doc={doc}
                       isLast={i === recentDocs.length - 1}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/document/[id]",
-                          params: { id: doc.id },
-                        } as never)
-                      }
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedDocumentIds.has(doc.id)}
+                      onPress={() => {
+                        if (isSelectionMode) {
+                          toggleDocumentSelection(doc.id);
+                        } else {
+                          router.push({
+                            pathname: "/document/[id]",
+                            params: { id: doc.id },
+                          } as never);
+                        }
+                      }}
+                      onLongPress={() => handleStartSelectionWithDoc(doc.id)}
+                      onMorePress={() => setSelectedDoc(doc)}
                     />
                   ))}
                 </View>
@@ -450,20 +613,110 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* FAB */}
-        <View className="absolute bottom-5 right-6" style={styles.fabWrap}>
-          <Pressable
-            onPress={() => router.push("/add-document" as never)}
-            accessibilityRole="button"
-            accessibilityLabel="Add new document"
-            className="floating-action-button active:opacity-90"
-            style={({ pressed }) => [
-              pressed && { transform: [{ scale: 0.94 }] },
-            ]}
+        {!isSelectionMode && (
+          <View className="absolute bottom-5 right-6" style={styles.fabWrap}>
+            <Pressable
+              onPress={() => router.push("/add-document" as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Add new document"
+              className="floating-action-button active:opacity-90"
+              style={({ pressed }) => [
+                pressed && { transform: [{ scale: 0.94 }] },
+              ]}
+            >
+              <Feather name="plus" size={26} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Sticky/Floating Bottom Selection Action Bar */}
+        {isSelectionMode && (
+          <View
+            style={styles.bottomBarShadow}
+            className="absolute bottom-5 left-6 right-6 bg-surface border border-border/60 rounded-2xl p-4 flex-row justify-between items-center z-[200]"
           >
-            <Feather name="plus" size={26} color="#FFFFFF" />
-          </Pressable>
-        </View>
+            <View>
+              <Text className="text-body-md text-primary font-bold">
+                {selectedDocumentIds.size} file{selectedDocumentIds.size !== 1 ? "s" : ""} selected
+              </Text>
+            </View>
+            <View className="flex-row gap-2">
+              <Pressable
+                onPress={handleExitSelection}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel selection mode"
+                className="bg-background border border-border px-4 py-2.5 rounded-xl active:opacity-75 min-h-11 justify-center"
+              >
+                <Text className="text-body-md font-semibold text-primary">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (selectedDocumentIds.size === 0) {
+                    Alert.alert("Nothing Selected", "Please select at least one document to delete.");
+                    return;
+                  }
+                  setIsBulkDeleteModalVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Delete selected documents"
+                className="bg-danger px-4 py-2.5 rounded-xl flex-row items-center active:opacity-75 min-h-11 justify-center"
+              >
+                <Feather name="trash-2" size={16} color="white" />
+                <Text className="text-body-md font-semibold text-white ml-2 font-semibold">Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
+
+      {/* Options Action Sheet */}
+      <ActionSheet
+        visible={selectedDoc !== null}
+        onClose={() => setSelectedDoc(null)}
+        title={selectedDoc ? `Options: ${selectedDoc.name}` : "Document Options"}
+        options={
+          selectedDoc
+            ? [
+                {
+                  label: "Edit Document",
+                  icon: "edit-2",
+                  onPress: () => router.push(`/edit-document/${selectedDoc.id}` as never),
+                },
+                {
+                  label: "Delete Document",
+                  icon: "trash-2",
+                  isDestructive: true,
+                  onPress: () => handleDeleteDoc(selectedDoc),
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={isDeleteModalVisible}
+        onClose={() => {
+          setIsDeleteModalVisible(false);
+          setDocToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Document"
+        message="Are you sure you want to permanently delete this document from your vault? This action cannot be undone."
+        confirmLabel="Delete"
+        isDestructive
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={isBulkDeleteModalVisible}
+        onClose={() => setIsBulkDeleteModalVisible(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title="Delete Selected Documents"
+        message={`Are you sure you want to permanently delete the selected ${selectedDocumentIds.size} document(s)? All associated notifications and files will be removed. This action cannot be undone.`}
+        confirmLabel="Delete"
+        isDestructive
+      />
     </View>
   );
 }
@@ -507,5 +760,12 @@ const styles = StyleSheet.create({
   },
   fabWrap: {
     zIndex: 50,
+  },
+  bottomBarShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
 });

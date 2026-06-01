@@ -26,7 +26,7 @@ Add the ability to edit an existing document's details. Tapping the three-dot me
    - Call `scheduleDocumentNotifications` or `cancelDocumentNotifications` from `lib/notifications.ts` based on the document's `notificationsEnabled` state — the expiry date may have changed, so notifications must be rescheduled
    - Navigate back to `app/document/[id].tsx`
 
-5. The `FilePickerButton` from feature16 should appear in the edit form. If the document already has a `localUri`, show it pre-populated in the picker (display name + size label).
+5. The `FilePickerButton` from feature19 should appear in the edit form. If the document already has a `localUri`, show it pre-populated in the picker (display name + size label).
 
 Do not modify `components/AddDocumentForm.tsx` structure beyond adding `initialValues` prop and edit-mode submit behavior.
 Do not change the store shape.

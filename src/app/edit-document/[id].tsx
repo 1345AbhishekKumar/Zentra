@@ -10,14 +10,16 @@ import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { saveFilePermanently } from "@/lib/share";
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function EditDocumentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { documents, updateDocument, notificationSettings } = useDocumentStore();
+  const { documents, folders, updateDocument, notificationSettings } = useDocumentStore();
 
   const doc = documents.find((d) => d.id === id);
 
@@ -47,8 +49,30 @@ export default function EditDocumentScreen() {
   }
 
   const handleFormSubmit = async (updatedDoc: ZentraDocument) => {
-    // 1. Update the document details in the global state
+    // 1. Save file permanently if there is a new attachment
+    if (updatedDoc.localUri && updatedDoc.localUri !== doc.localUri) {
+      const permanentUri = await saveFilePermanently(updatedDoc.localUri, updatedDoc.name);
+      if (permanentUri) {
+        updatedDoc.localUri = permanentUri;
+      }
+    }
+
+    // 2. Clean up old file if it was replaced or removed
+    if (doc.localUri && doc.localUri !== updatedDoc.localUri) {
+      const permanentDirectory = FileSystem.documentDirectory;
+      if (permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
+        try {
+          await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
+          console.log("[EditDocument] Deleted old permanent file:", doc.localUri);
+        } catch (e) {
+          console.warn("Failed to delete old local file:", e);
+        }
+      }
+    }
+
+    // 3. Update the document details in the global state
     updateDocument(doc.id, updatedDoc);
+    AccessibilityInfo.announceForAccessibility("Document saved");
 
     // 2. Manage device alerts coordination
     if (updatedDoc.notificationsEnabled && notificationSettings.globalEnabled) {
@@ -85,7 +109,7 @@ export default function EditDocumentScreen() {
         <Text className="text-h1 text-primary font-bold">Edit Document</Text>
         <Pressable
           onPress={goBack}
-          hitSlop={12}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel="Close edit document modal"
           className="w-10 h-10 items-center justify-center rounded-full active:bg-background"
@@ -94,11 +118,12 @@ export default function EditDocumentScreen() {
         </Pressable>
       </View>
 
-      <View className="flex-1 px-6 pt-5">
+      <View className="flex-1 pt-2">
         <AddDocumentForm
           onSubmit={handleFormSubmit}
           onCancel={goBack}
           initialValues={doc}
+          folders={folders}
         />
       </View>
     </KeyboardAvoidingView>

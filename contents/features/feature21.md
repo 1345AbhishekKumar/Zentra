@@ -80,7 +80,7 @@ clearAllData: () => set({ documents: [], collections: [] })
 ---
 
 Do not create `app/settings.tsx` — it does not exist in this version of Zentra.
-Do not modify `app/favorites.tsx`, `app/alerts.tsx`, 
+Do not modify `app/favorites.tsx`, `app/alerts.tsx`.
 Do not change `lib/notifications.ts`, `lib/date.ts`, or `lib/share.ts`.
 Do not touch any other tab screen (Home, Documents, Expiring Soon).
 Do not modify `NotificationToggle` component — use it as-is.

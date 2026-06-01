@@ -59,16 +59,19 @@ export default function ExpiryBadge({
     labelText = `Expires ${label}`;
   }
 
-  const resolvedColor = textClass.includes("text-danger")
-    ? colors.danger
-    : textClass.includes("text-warning")
-      ? colors.warning
-      : textClass.includes("text-success")
-        ? colors.success
-        : colors.secondary;
+  const colorMap: Record<typeof urgency, string> = {
+    expired: colors.danger,
+    critical: colors.danger,
+    warning: colors.warning,
+    safe: colors.success,
+  };
+  const resolvedColor = colorMap[urgency] || colors.secondary;
 
   return (
     <View
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`Expiry status: ${expiryLabel(expiryDate)}`}
       className={`flex-row items-center px-2 py-0.5 rounded-full ${bgClass}`}
     >
       <Feather

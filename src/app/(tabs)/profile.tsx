@@ -12,11 +12,14 @@ import {
   ActivityIndicator,
   Linking,
   AlertButton,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useUser, useAuth } from "@clerk/expo";
 import { useRouter } from "expo-router";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import NotificationToggle from "@/components/NotificationToggle";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import {
   cancelAllNotifications,
   scheduleDocumentNotifications,
@@ -29,9 +32,15 @@ import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requireOptionalNativeModule } from "expo-modules-core";
 
+interface GlobalWithNativeFlags {
+  __isImagePickerNativeAvailable?: boolean;
+}
+
+const globalWithFlags = globalThis as GlobalWithNativeFlags;
+
 const isImagePickerNativeAvailable =
-  typeof (globalThis as any).__isImagePickerNativeAvailable === "boolean"
-    ? (globalThis as any).__isImagePickerNativeAvailable
+  typeof globalWithFlags.__isImagePickerNativeAvailable === "boolean"
+    ? globalWithFlags.__isImagePickerNativeAvailable
     : !!requireOptionalNativeModule("ExponentImagePicker");
 
 const safeRequireImagePicker = () => {
@@ -67,12 +76,23 @@ export default function ProfileScreen() {
     clearAllData,
   } = useDocumentStore();
 
+  const isMountedRef = React.useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isNameModalVisible, setIsNameModalVisible] = useState(false);
+  const [isSignOutModalVisible, setIsSignOutModalVisible] = useState(false);
+  const [isDeleteAllDataModalVisible, setIsDeleteAllDataModalVisible] = useState(false);
   const [formFirstName, setFormFirstName] = useState("");
   const [formLastName, setFormLastName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isFirstNameFocused, setIsFirstNameFocused] = useState(false);
+  const [isLastNameFocused, setIsLastNameFocused] = useState(false);
 
   useEffect(() => {
     const checkAppLock = async () => {
@@ -172,11 +192,15 @@ export default function ProfileScreen() {
             await user?.setProfileImage({
               file: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
             });
-            setIsUploading(false);
+            if (isMountedRef.current) {
+              setIsUploading(false);
+            }
           } catch (err) {
             console.error(err);
-            setIsUploading(false);
-            Alert.alert("Upload Failed", "Failed to update profile photo.");
+            if (isMountedRef.current) {
+              setIsUploading(false);
+              Alert.alert("Upload Failed", "Failed to update profile photo.");
+            }
           }
         }, 1000);
         return;
@@ -196,7 +220,7 @@ export default function ProfileScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.6,
@@ -238,11 +262,15 @@ export default function ProfileScreen() {
             await user?.setProfileImage({
               file: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150",
             });
-            setIsUploading(false);
+            if (isMountedRef.current) {
+              setIsUploading(false);
+            }
           } catch (err) {
             console.error(err);
-            setIsUploading(false);
-            Alert.alert("Upload Failed", "Failed to update profile photo.");
+            if (isMountedRef.current) {
+              setIsUploading(false);
+              Alert.alert("Upload Failed", "Failed to update profile photo.");
+            }
           }
         }, 1000);
         return;
@@ -262,7 +290,7 @@ export default function ProfileScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.6,
@@ -305,52 +333,34 @@ export default function ProfileScreen() {
 
   // Sign out confirmation handler
   const handleSignOut = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut();
-              setUser(null);
-              router.replace("/(auth)/sign-in");
-            } catch (err) {
-              console.error("Error signing out:", err);
-              Alert.alert("Error", "Failed to sign out. Please try again.");
-            }
-          },
-        },
-      ]
-    );
+    setIsSignOutModalVisible(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    try {
+      await signOut();
+      setUser(null);
+      router.replace("/(auth)/sign-in");
+    } catch (err) {
+      console.error("Error signing out:", err);
+      Alert.alert("Error", "Failed to sign out. Please try again.");
+    }
   };
 
   // Delete all documents confirmation handler
   const handleDeleteAllData = () => {
-    Alert.alert(
-      "Delete All Data",
-      "This permanently deletes all documents and cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await cancelAllNotifications();
-              clearAllData();
-              Alert.alert("Success", "All document data has been deleted.");
-            } catch (err) {
-              console.error("Error deleting data:", err);
-              Alert.alert("Error", "Failed to clear notifications or data.");
-            }
-          },
-        },
-      ]
-    );
+    setIsDeleteAllDataModalVisible(true);
+  };
+
+  const handleConfirmDeleteAllData = async () => {
+    try {
+      await cancelAllNotifications();
+      clearAllData();
+      Alert.alert("Success", "All document data has been deleted.");
+    } catch (err) {
+      console.error("Error deleting data:", err);
+      Alert.alert("Error", "Failed to clear notifications or data.");
+    }
   };
 
   // Toggle advance notice days chip handler
@@ -365,11 +375,10 @@ export default function ProfileScreen() {
     updateNotificationSettings({ advanceNoticeDays: updatedDays });
 
     if (notificationSettings.globalEnabled) {
-      for (const doc of documents) {
-        if (doc.notificationsEnabled) {
-          await scheduleDocumentNotifications(doc, updatedDays);
-        }
-      }
+      const promises = documents
+        .filter((doc) => doc.notificationsEnabled)
+        .map((doc) => scheduleDocumentNotifications(doc, updatedDays));
+      await Promise.all(promises);
     }
   };
 
@@ -378,72 +387,81 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header title */}
-      <View
-        className="px-6 pb-2 bg-surface border-b border-border/20"
-        style={{ paddingTop: insets.top > 0 ? insets.top + 8 : 16 }}
-      >
-        <Text className="text-h1 text-primary font-bold">Profile</Text>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingBottom: 40 + insets.bottom,
         }}
       >
+        {/* Header title */}
+        <View className="px-6 pt-6 mb-4">
+          <Text className="text-h1 text-primary font-bold">Profile</Text>
+        </View>
+
         {/* User Card */}
-        <View className="items-center mt-6 px-6">
-          <Pressable onPress={handleAvatarPress} className="relative active:opacity-90">
-            {avatarUrl ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                className="w-16 h-16 rounded-full"
-                style={styles.avatarBorder}
-              />
-            ) : (
-              <View
-                className="w-16 h-16 rounded-full items-center justify-center bg-accent"
-                style={styles.avatarBorder}
-              >
-                <Text className="text-white text-h1 font-bold">{initials}</Text>
-              </View>
-            )}
-            {/* Activity indicator overlay during upload */}
-            {isUploading && (
-              <View className="absolute inset-0 items-center justify-center bg-black/30 rounded-full">
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              </View>
-            )}
-            {/* Edit icon overlay */}
-            <View
-              className="absolute bottom-0 right-0 w-6 h-6 bg-accent border-2 border-white rounded-full items-center justify-center"
-              style={styles.editBadgeShadow}
-            >
-              <Feather name="camera" size={10} color="#FFFFFF" />
-            </View>
-          </Pressable>
-
-          <Text className="text-h1 text-primary font-bold text-center mt-3">
-            {displayName}
-          </Text>
-          <Text className="text-body-md text-secondary text-center mt-1">
-            {email}
-          </Text>
-
-          <Pressable
-            onPress={openNameModal}
-            className="mt-2.5 py-1.5 px-4 bg-softAccent rounded-full active:opacity-80"
+        <View className="px-6">
+          <View
+            className="bg-surface items-center p-6 rounded-2xl border border-border/40"
+            style={styles.cardShadow}
           >
-            <Text className="text-body-md text-accent font-semibold">
-              Edit Profile
+            <Pressable
+              onPress={handleAvatarPress}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              className="relative active:opacity-90"
+            >
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  className="w-16 h-16 rounded-full"
+                  style={styles.avatarBorder}
+                />
+              ) : (
+                <View
+                  className="w-16 h-16 rounded-full items-center justify-center bg-soft-accent"
+                  style={styles.avatarBorder}
+                >
+                  <Text className="text-accent text-h1 font-bold">{initials}</Text>
+                </View>
+              )}
+              {/* Activity indicator overlay during upload */}
+              {isUploading && (
+                <View className="absolute inset-0 items-center justify-center bg-black/30 rounded-full">
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                </View>
+              )}
+              {/* Edit icon overlay */}
+              <View
+                className="absolute bottom-0 right-0 w-6 h-6 bg-accent border-2 border-surface rounded-full items-center justify-center"
+                style={styles.editBadgeShadow}
+              >
+                <Feather name="camera" size={10} color="#FFFFFF" />
+              </View>
+            </Pressable>
+
+            <Text className="text-h1 text-primary font-bold text-center mt-3">
+              {displayName}
             </Text>
-          </Pressable>
+            <Text className="text-body-md text-secondary text-center mt-1">
+              {email}
+            </Text>
+
+            <Pressable
+              onPress={openNameModal}
+              accessibilityRole="button"
+              accessibilityLabel="Edit profile name"
+              className="mt-3.5 px-4 bg-soft-accent rounded-full active:opacity-80 min-h-11 justify-center"
+            >
+              <Text className="text-body-md text-accent font-semibold">
+                Edit Profile
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Stats Row */}
         <View
-          className="flex-row justify-around bg-surface mx-6 mt-6 p-4 rounded-2xl border border-border/40"
+          className="flex-row justify-around bg-surface mx-6 mt-4 p-4 rounded-2xl border border-border/40"
           style={styles.cardShadow}
         >
           <View className="items-center flex-1">
@@ -473,22 +491,24 @@ export default function ProfileScreen() {
         </View>
 
         {/* Section: My Content */}
-        <View className="mt-8">
-          <View className="bg-background py-3 px-6 border-b border-t border-border/30">
-            <Text className="text-body-sm text-secondary font-bold uppercase tracking-wider">
+        <View className="mt-4">
+          <View className="px-6 pt-5 pb-2">
+            <Text className="text-body-sm text-secondary font-semibold uppercase tracking-wider">
               My Content
             </Text>
           </View>
-          <View className="px-6 mt-3">
+          <View className="px-6 mt-1">
             <View
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
             >
               <Pressable
                 onPress={() => router.push("/favorites")}
+                accessibilityRole="button"
+                accessibilityLabel="Favorites"
                 className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
               >
-                <Ionicons name="heart-outline" size={20} color={colors.primary} />
+                <Feather name="heart" size={20} color={colors.primary} />
                 <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
                   Favorites
                 </Text>
@@ -497,9 +517,11 @@ export default function ProfileScreen() {
 
               <Pressable
                 onPress={() => router.push("/alerts")}
+                accessibilityRole="button"
+                accessibilityLabel="Expiry Alerts"
                 className="flex-row items-center px-4 py-4 active:bg-background/50"
               >
-                <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+                <Feather name="bell" size={20} color={colors.primary} />
                 <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
                   Expiry Alerts
                 </Text>
@@ -510,13 +532,13 @@ export default function ProfileScreen() {
         </View>
 
         {/* Section: Notifications */}
-        <View className="mt-6">
-          <View className="bg-background py-3 px-6 border-b border-t border-border/30">
-            <Text className="text-body-sm text-secondary font-bold uppercase tracking-wider">
+        <View className="mt-4">
+          <View className="px-6 pt-5 pb-2">
+            <Text className="text-body-sm text-secondary font-semibold uppercase tracking-wider">
               Notifications
             </Text>
           </View>
-          <View className="px-6 mt-3">
+          <View className="px-6 mt-1">
             <View
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
@@ -529,14 +551,15 @@ export default function ProfileScreen() {
                   if (!enabled) {
                     await cancelAllNotifications();
                   } else {
-                    for (const doc of documents) {
-                      if (doc.notificationsEnabled) {
-                        await scheduleDocumentNotifications(
+                    const promises = documents
+                      .filter((doc) => doc.notificationsEnabled)
+                      .map((doc) =>
+                        scheduleDocumentNotifications(
                           doc,
                           notificationSettings.advanceNoticeDays,
-                        );
-                      }
-                    }
+                        ),
+                      );
+                    await Promise.all(promises);
                   }
                 }}
                 label="Global Notifications"
@@ -563,11 +586,17 @@ export default function ProfileScreen() {
                       <Pressable
                         key={day}
                         onPress={() => handleToggleChip(day)}
-                        className={`px-4 py-2 rounded-full border ${
+                        accessibilityRole="button"
+                        accessibilityLabel={`Toggle ${day} days reminder`}
+                        accessibilityState={{ selected: isSelected }}
+                        className={`px-4 rounded-full border active:opacity-85 min-h-11 justify-center ${
                           isSelected
                             ? "bg-accent border-accent"
                             : "bg-surface border-border"
                         }`}
+                        style={({ pressed }) => [
+                          pressed && { transform: [{ scale: 0.96 }] }
+                        ]}
                       >
                         <Text
                           className={`text-body-md font-semibold ${
@@ -594,19 +623,21 @@ export default function ProfileScreen() {
         </View>
 
         {/* Section: Security */}
-        <View className="mt-6">
-          <View className="bg-background py-3 px-6 border-b border-t border-border/30">
-            <Text className="text-body-sm text-secondary font-bold uppercase tracking-wider">
+        <View className="mt-4">
+          <View className="px-6 pt-5 pb-2">
+            <Text className="text-body-sm text-secondary font-semibold uppercase tracking-wider">
               Security
             </Text>
           </View>
-          <View className="px-6 mt-3">
+          <View className="px-6 mt-1">
             <View
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
             >
               <Pressable
                 onPress={() => router.push("/app-lock" as any)}
+                accessibilityRole="button"
+                accessibilityLabel="App Lock"
                 className="flex-row items-center px-4 py-4 active:bg-background/50"
               >
                 <Feather name="lock" size={20} color={colors.primary} />
@@ -623,19 +654,21 @@ export default function ProfileScreen() {
         </View>
 
         {/* Section: Data */}
-        <View className="mt-6">
-          <View className="bg-background py-3 px-6 border-b border-t border-border/30">
-            <Text className="text-body-sm text-secondary font-bold uppercase tracking-wider">
+        <View className="mt-4">
+          <View className="px-6 pt-5 pb-2">
+            <Text className="text-body-sm text-secondary font-semibold uppercase tracking-wider">
               Data
             </Text>
           </View>
-          <View className="px-6 mt-3">
+          <View className="px-6 mt-1">
             <View
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
             >
               <Pressable
                 onPress={handleDeleteAllData}
+                accessibilityRole="button"
+                accessibilityLabel="Delete All Documents"
                 className="flex-row items-center px-4 py-4 active:bg-background/50"
               >
                 <Feather name="trash-2" size={20} color={colors.danger} />
@@ -649,13 +682,13 @@ export default function ProfileScreen() {
         </View>
 
         {/* Section: About */}
-        <View className="mt-6">
-          <View className="bg-background py-3 px-6 border-b border-t border-border/30">
-            <Text className="text-body-sm text-secondary font-bold uppercase tracking-wider">
+        <View className="mt-4">
+          <View className="px-6 pt-5 pb-2">
+            <Text className="text-body-sm text-secondary font-semibold uppercase tracking-wider">
               About
             </Text>
           </View>
-          <View className="px-6 mt-3">
+          <View className="px-6 mt-1">
             <View
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
@@ -683,6 +716,8 @@ export default function ProfileScreen() {
           <Pressable
             onPress={handleSignOut}
             style={styles.cardShadow}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out of the app"
             className="w-full bg-surface py-4 rounded-xl items-center justify-center border border-border/40 active:opacity-75"
           >
             <Text className="text-body-lg font-semibold text-danger">Sign Out</Text>
@@ -697,53 +732,96 @@ export default function ProfileScreen() {
         animationType="fade"
         onRequestClose={() => setIsNameModalVisible(false)}
       >
-        <View style={styles.modalOverlay} className="flex-1 items-center justify-center px-6">
-          <View className="bg-surface w-full p-6 rounded-2xl border border-border/40" style={styles.cardShadow}>
-            <Text className="text-h2 text-primary font-bold mb-4">Edit Profile Name</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay} className="flex-1 items-center justify-center px-6">
+            <View className="bg-surface w-full p-6 rounded-2xl border border-border/40" style={styles.cardShadow}>
+              <Text className="text-h2 text-primary font-bold mb-4">Edit Profile Name</Text>
 
-            <View className="mb-4">
-              <Text className="text-body-md text-primary font-semibold mb-2">First Name</Text>
-              <TextInput
-                value={formFirstName}
-                onChangeText={setFormFirstName}
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-body-lg text-primary"
-                placeholder="First name"
-                autoFocus
-              />
-            </View>
+              <View className="mb-4">
+                <Text className="text-body-md text-primary font-semibold mb-2">First Name</Text>
+                <TextInput
+                  value={formFirstName}
+                  onChangeText={setFormFirstName}
+                  onFocus={() => setIsFirstNameFocused(true)}
+                  onBlur={() => setIsFirstNameFocused(false)}
+                  accessibilityLabel="First name"
+                  className={`w-full bg-background border rounded-xl px-4 py-3 text-body-lg text-primary ${
+                    isFirstNameFocused ? "border-accent border-2" : "border-border"
+                  }`}
+                  placeholder="First name"
+                  autoFocus
+                  placeholderTextColor={colors.secondary}
+                />
+              </View>
 
-            <View className="mb-6">
-              <Text className="text-body-md text-primary font-semibold mb-2">Last Name</Text>
-              <TextInput
-                value={formLastName}
-                onChangeText={setFormLastName}
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-body-lg text-primary"
-                placeholder="Last name"
-              />
-            </View>
+              <View className="mb-6">
+                <Text className="text-body-md text-primary font-semibold mb-2">Last Name</Text>
+                <TextInput
+                  value={formLastName}
+                  onChangeText={setFormLastName}
+                  onFocus={() => setIsLastNameFocused(true)}
+                  onBlur={() => setIsLastNameFocused(false)}
+                  accessibilityLabel="Last name"
+                  className={`w-full bg-background border rounded-xl px-4 py-3 text-body-lg text-primary ${
+                    isLastNameFocused ? "border-accent border-2" : "border-border"
+                  }`}
+                  placeholder="Last name"
+                  placeholderTextColor={colors.secondary}
+                />
+              </View>
 
-            <View className="flex-row gap-3">
-              <Pressable
-                onPress={() => setIsNameModalVisible(false)}
-                className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75"
-              >
-                <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSaveName}
-                disabled={isSavingName}
-                className="flex-1 bg-accent py-3 rounded-xl items-center justify-center active:opacity-75"
-              >
-                {isSavingName ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text className="text-body-lg font-semibold text-white">Save</Text>
-                )}
-              </Pressable>
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => setIsNameModalVisible(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel editing name"
+                  className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+                >
+                  <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSaveName}
+                  disabled={isSavingName}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save name changes"
+                  className="flex-1 bg-accent py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+                >
+                  {isSavingName ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text className="text-body-lg font-semibold text-white">Save</Text>
+                  )}
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {/* Sign Out Confirmation Modal */}
+      <ConfirmationModal
+        visible={isSignOutModalVisible}
+        onClose={() => setIsSignOutModalVisible(false)}
+        onConfirm={handleConfirmSignOut}
+        title="Sign Out"
+        message="Are you sure you want to sign out of Zentra?"
+        confirmLabel="Sign Out"
+        isDestructive
+      />
+
+      {/* Delete All Data Confirmation Modal */}
+      <ConfirmationModal
+        visible={isDeleteAllDataModalVisible}
+        onClose={() => setIsDeleteAllDataModalVisible(false)}
+        onConfirm={handleConfirmDeleteAllData}
+        title="Delete All Data"
+        message="This permanently deletes all documents from your vault and cancels all reminders. This action is irreversible."
+        confirmLabel="Delete All"
+        isDestructive
+      />
     </View>
   );
 }
@@ -758,7 +836,7 @@ const styles = StyleSheet.create({
   },
   avatarBorder: {
     borderWidth: 2,
-    borderColor: "#E5E7EB",
+    borderColor: "#EEF2FF",
   },
   modalOverlay: {
     flex: 1,
