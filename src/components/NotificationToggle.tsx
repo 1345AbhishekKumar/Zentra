@@ -7,7 +7,7 @@ import { Feather } from "@expo/vector-icons";
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
 interface NotificationToggleProps {
-  documentId: string;
+  documentId?: string;
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
   label?: string;

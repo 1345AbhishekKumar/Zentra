@@ -47,7 +47,7 @@ assets/           → fonts, icons, images
 
 1. **Clone the repository**
    ```bash
-   git clone (https://github.com/1345AbhishekKumar/Zentra.git)
+   git clone https://github.com/1345AbhishekKumar/Zentra.git
    cd Zentra
    ```
 

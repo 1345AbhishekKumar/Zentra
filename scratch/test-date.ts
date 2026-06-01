@@ -20,8 +20,8 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-// Setup test dates relative to today
-const today = new Date();
+// Setup test dates relative to a pinned base date (deterministic, avoids flaky assertions)
+const today = new Date(2025, 0, 15); // Jan 15, 2025
 const pastDate = toISOStr(subDays(today, 5));
 const todayStr = toISOStr(today);
 const tomorrowStr = toISOStr(addDays(today, 1));

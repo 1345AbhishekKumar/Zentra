@@ -117,6 +117,9 @@ export default function AddDocumentForm({
   // Active focus element state
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Ensure selected category is always listed in pills even if folders is empty/doesn't have it
+  const categoryList = folders.includes(category) ? folders : [...folders, category];
+
   // Errors State
   const [errors, setErrors] = useState<{ name?: string; expiryDate?: string }>(
     {},
@@ -163,7 +166,8 @@ export default function AddDocumentForm({
         } else {
           const normalized = startOfDay(parsed);
           const todayStart = startOfToday();
-          if (normalized.getTime() <= todayStart.getTime()) {
+          const isUnchanged = initialValues && expiryDate.trim() === initialValues.expiryDate.trim();
+          if (!isUnchanged && normalized.getTime() <= todayStart.getTime()) {
             newErrors.expiryDate = "Expiry date must be in the future.";
           }
         }
@@ -264,7 +268,7 @@ export default function AddDocumentForm({
             className="gap-2"
             style={{ flexDirection: "row", flexWrap: "wrap" }}
           >
-            {folders.map((cat) => {
+            {categoryList.map((cat) => {
               const isSelected = category === cat;
               const pillStyles = getCategoryPillStyle(cat, isSelected, folders);
               return (

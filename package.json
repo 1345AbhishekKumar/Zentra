@@ -1,6 +1,6 @@
 {
   "name": "zentra",
-  "main": "index.js",
+  "main": "index.ts",
   "version": "1.0.0",
   "dependencies": {
     "@clerk/expo": "~3.3.0",

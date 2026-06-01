@@ -322,7 +322,7 @@ export default function SignIn() {
                     <Link href="/forgot-password" asChild>
                       <Pressable
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                        accessibilityRole="button"
+                        accessibilityRole="link"
                         accessibilityLabel="Forgot password"
                         style={({ pressed }) => ({
                           opacity: pressed ? 0.6 : 1,

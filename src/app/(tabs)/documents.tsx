@@ -1,6 +1,8 @@
 import DocumentCard from "@/components/DocumentCard";
 import EmptyState from "@/components/EmptyState";
 import ExpiryBadge from "@/components/ExpiryBadge";
+import ActionSheet from "@/components/ActionSheet";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import { sortByExpiry, expiryUrgency } from "@/lib/date";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
@@ -8,7 +10,10 @@ import { DocumentCategory } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
+import { cancelDocumentNotifications } from "@/lib/notifications";
+import * as FileSystem from "expo-file-system/legacy";
 import {
+    AccessibilityInfo,
     Alert,
     Modal,
     Pressable,
@@ -28,6 +33,8 @@ export default function DocumentsScreen() {
     renameFolder,
     deleteFolder,
     toggleFavorite,
+    deleteMultipleDocuments,
+    deleteMultipleFolders,
   } = useDocumentStore();
 
   // Local UI State
@@ -39,11 +46,104 @@ export default function DocumentsScreen() {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [sort, setSort] = useState<"name" | "expiry" | "added">("added");
 
+  // Selection Mode State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(new Set());
+  const [selectedFolderNames, setSelectedFolderNames] = useState<Set<string>>(new Set());
+  const [isBulkDeleteModalVisible, setIsBulkDeleteModalVisible] = useState(false);
+
   // Folder Dialog Modal State
   const [isFolderModalVisible, setIsFolderModalVisible] = useState(false);
   const [folderModalMode, setFolderModalMode] = useState<"create" | "rename">("create");
   const [targetFolderName, setTargetFolderName] = useState("");
   const [folderInputName, setFolderInputName] = useState("");
+  const [selectedFolderOptions, setSelectedFolderOptions] = useState<string | null>(null);
+  const [isDeleteFolderModalVisible, setIsDeleteFolderModalVisible] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+
+  // Selection Mode Helpers
+  const toggleDocumentSelection = (id: string) => {
+    setSelectedDocumentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleFolderSelection = (name: string) => {
+    setSelectedFolderNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
+
+  const handleStartSelectionWithDoc = (id: string) => {
+    setIsSelectionMode(true);
+    setSelectedDocumentIds(new Set([id]));
+    setSelectedFolderNames(new Set());
+  };
+
+  const handleStartSelectionWithFolder = (name: string) => {
+    setIsSelectionMode(true);
+    setSelectedFolderNames(new Set([name]));
+    setSelectedDocumentIds(new Set());
+  };
+
+  const handleExitSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedDocumentIds(new Set());
+    setSelectedFolderNames(new Set());
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    try {
+      const docIds = Array.from(selectedDocumentIds);
+      const folderNames = Array.from(selectedFolderNames);
+
+      // 1. Cancel notifications for each selected document
+      await Promise.all(docIds.map((id) => cancelDocumentNotifications(id)));
+
+      // 2. Delete local files for each selected document
+      const permanentDirectory = FileSystem.documentDirectory;
+      for (const id of docIds) {
+        const doc = documents.find((d) => d.id === id);
+        if (doc?.localUri && permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
+          try {
+            await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
+          } catch (e) {
+            console.warn("Failed to delete file on bulk delete:", e);
+          }
+        }
+      }
+
+      // 3. Call store actions
+      if (docIds.length > 0) {
+        deleteMultipleDocuments(docIds);
+      }
+      if (folderNames.length > 0) {
+        deleteMultipleFolders(folderNames);
+      }
+
+      // 4. Update accessibility announcements and state
+      AccessibilityInfo.announceForAccessibility(
+        `Deleted ${docIds.length} documents and ${folderNames.length} folders`
+      );
+    } catch (error) {
+      console.error("Bulk delete failed:", error);
+    } finally {
+      setIsBulkDeleteModalVisible(false);
+      handleExitSelection();
+    }
+  };
 
   // Calculate category folder item counts dynamically
   const categoryCounts = useMemo(() => {
@@ -100,46 +200,21 @@ export default function DocumentsScreen() {
   };
 
   const handleFolderOptions = (folderName: string) => {
-    const count = categoryCounts[folderName] || 0;
-    Alert.alert(
-      `Manage Folder: ${folderName}`,
-      "Choose an action for this folder.",
-      [
-        {
-          text: "✏️ Rename Folder",
-          onPress: () => openFolderModal(folderName),
-        },
-        {
-          text: "🗑️ Delete Folder",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              "Delete Folder",
-              count > 0
-                ? `Are you sure you want to delete the folder "${folderName}"? The ${count} document(s) inside will be moved to the "Other" folder.`
-                : `Are you sure you want to delete the folder "${folderName}"?`,
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => {
-                    deleteFolder(folderName);
-                    if (selectedCategory === folderName) {
-                      setSelectedCategory(null);
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ]
-    );
+    setSelectedFolderOptions(folderName);
+  };
+
+  const triggerFolderDelete = (folderName: string) => {
+    setFolderToDelete(folderName);
+    setIsDeleteFolderModalVisible(true);
+  };
+
+  const handleConfirmDeleteFolder = () => {
+    if (!folderToDelete) return;
+    deleteFolder(folderToDelete);
+    if (selectedCategory === folderToDelete) {
+      setSelectedCategory(null);
+    }
+    setFolderToDelete(null);
   };
 
   // Combined documents filtering logic
@@ -188,6 +263,43 @@ export default function DocumentsScreen() {
     selectedTab === "All" &&
     selectedCategory === null;
 
+  const renderEmptyState = () => {
+    if (documents.length === 0) {
+      return (
+        <EmptyState
+          icon="document-text-outline"
+          title="Your vault is empty"
+          message="Start by adding a document"
+          actionLabel="Add Document"
+          onAction={() => router.push("/add-document" as never)}
+        />
+      );
+    }
+    if (selectedCategory) {
+      return (
+        <EmptyState
+          icon="folder-outline"
+          title={`No ${selectedCategory} documents`}
+          message="Add a document to this category"
+          actionLabel="Clear Category"
+          onAction={() => setSelectedCategory(null)}
+        />
+      );
+    }
+    return (
+      <EmptyState
+        icon="document-text-outline"
+        title="No documents found"
+        message="No matches found for your current filters."
+        actionLabel="Clear Filters"
+        onAction={() => {
+          setSelectedTab("All");
+          setSelectedCategory(null);
+        }}
+      />
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View className="flex-1 relative">
@@ -199,6 +311,29 @@ export default function DocumentsScreen() {
           <View className="flex-row justify-between items-center px-6 pt-6 mb-5">
             <Text className="text-h1 text-primary font-bold">Documents</Text>
             <View className="flex-row items-center gap-3">
+              <Pressable
+                onPress={() => {
+                  if (isSelectionMode) {
+                    handleExitSelection();
+                  } else {
+                    setIsSelectionMode(true);
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={isSelectionMode ? "Cancel selection" : "Select items"}
+                className={`px-3 py-1.5 rounded-lg border border-border/40 min-h-9 justify-center ${
+                  isSelectionMode ? "bg-soft-accent border-accent/20" : "bg-surface"
+                }`}
+              >
+                <Text
+                  className={`text-body-md font-semibold ${
+                    isSelectionMode ? "text-accent" : "text-secondary"
+                  }`}
+                >
+                  {isSelectionMode ? "Cancel" : "Select"}
+                </Text>
+              </Pressable>
+
               <Pressable
                 onPress={() => setViewMode("grid")}
                 accessibilityLabel="Grid view"
@@ -367,6 +502,7 @@ export default function DocumentsScreen() {
                 {folders.map((folderName, index) => {
                   const count = categoryCounts[folderName] || 0;
                   const isLast = index === folders.length - 1;
+                  const isFolderSelected = selectedFolderNames.has(folderName);
                   return (
                     <View
                       key={folderName}
@@ -374,10 +510,20 @@ export default function DocumentsScreen() {
                       style={isLast ? { borderBottomWidth: 0 } : undefined}
                     >
                       <Pressable
-                        onPress={() => setSelectedCategory(folderName)}
+                        onPress={() => {
+                          if (isSelectionMode) {
+                            toggleFolderSelection(folderName);
+                          } else {
+                            setSelectedCategory(folderName);
+                          }
+                        }}
+                        onLongPress={() => handleStartSelectionWithFolder(folderName)}
+                        delayLongPress={200}
                         accessibilityRole="button"
                         accessibilityLabel={`Folder: ${folderName}, ${count} ${count === 1 ? "item" : "items"}`}
-                        className="flex-1 flex-row items-center px-4 py-4 active:bg-background"
+                        className={`flex-1 flex-row items-center px-4 py-4 active:bg-background ${
+                          isSelectionMode && isFolderSelected ? "bg-soft-accent/30" : ""
+                        }`}
                       >
                         <View className="w-11 h-11 rounded-xl bg-soft-accent items-center justify-center">
                           <Feather
@@ -395,26 +541,42 @@ export default function DocumentsScreen() {
                           </Text>
                         </View>
                       </Pressable>
-                      <View className="flex-row items-center pr-3">
+                      {isSelectionMode ? (
                         <Pressable
-                          onPress={() => handleFolderOptions(folderName)}
+                          onPress={() => toggleFolderSelection(folderName)}
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           accessibilityRole="button"
-                          accessibilityLabel={`More options for folder ${folderName}`}
-                          className="w-10 h-10 items-center justify-center rounded-full active:bg-border/25 mr-1"
+                          accessibilityLabel={`Select folder ${folderName}`}
+                          className="w-12 h-12 items-center justify-center mr-2 rounded-full active:bg-border/20"
                         >
-                          <Feather name="more-vertical" size={18} color="#B3B3B3" />
+                          <Feather
+                            name={isFolderSelected ? "check-circle" : "circle"}
+                            size={22}
+                            color={isFolderSelected ? colors.accent : "#B3B3B3"}
+                          />
                         </Pressable>
-                        <Pressable
-                          onPress={() => setSelectedCategory(folderName)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Open folder ${folderName}`}
-                          className="w-8 h-10 items-center justify-center"
-                        >
-                          <Feather name="chevron-right" size={20} color="#B3B3B3" />
-                        </Pressable>
-                      </View>
+                      ) : (
+                        <View className="flex-row items-center pr-3">
+                          <Pressable
+                            onPress={() => handleFolderOptions(folderName)}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`More options for folder ${folderName}`}
+                            className="w-10 h-10 items-center justify-center rounded-full active:bg-border/25 mr-1"
+                          >
+                            <Feather name="more-vertical" size={18} color="#B3B3B3" />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => setSelectedCategory(folderName)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open folder ${folderName}`}
+                            className="w-8 h-10 items-center justify-center"
+                          >
+                            <Feather name="chevron-right" size={20} color="#B3B3B3" />
+                          </Pressable>
+                        </View>
+                      )}
                     </View>
                   );
                 })}
@@ -443,12 +605,19 @@ export default function DocumentsScreen() {
                     <DocumentCard
                       doc={doc}
                       viewMode="grid"
-                      onPress={() =>
-                        router.push({
-                          pathname: "/document/[id]",
-                          params: { id: doc.id },
-                        } as never)
-                      }
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedDocumentIds.has(doc.id)}
+                      onPress={() => {
+                        if (isSelectionMode) {
+                          toggleDocumentSelection(doc.id);
+                        } else {
+                          router.push({
+                            pathname: "/document/[id]",
+                            params: { id: doc.id },
+                          } as never);
+                        }
+                      }}
+                      onLongPress={() => handleStartSelectionWithDoc(doc.id)}
                       onFavoritePress={() => toggleFavorite(doc.id)}
                     />
                     {sort === "expiry" && expiryUrgency(doc.expiryDate) === "safe" && (
@@ -473,12 +642,19 @@ export default function DocumentsScreen() {
                     <DocumentCard
                       doc={doc}
                       viewMode="list"
-                      onPress={() =>
-                        router.push({
-                          pathname: "/document/[id]",
-                          params: { id: doc.id },
-                        } as never)
-                      }
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedDocumentIds.has(doc.id)}
+                      onPress={() => {
+                        if (isSelectionMode) {
+                          toggleDocumentSelection(doc.id);
+                        } else {
+                          router.push({
+                            pathname: "/document/[id]",
+                            params: { id: doc.id },
+                          } as never);
+                        }
+                      }}
+                      onLongPress={() => handleStartSelectionWithDoc(doc.id)}
                       onFavoritePress={() => toggleFavorite(doc.id)}
                     />
                     {sort === "expiry" && expiryUrgency(doc.expiryDate) === "safe" && (
@@ -495,59 +671,68 @@ export default function DocumentsScreen() {
               </View>
             )
           ) : (
-            (() => {
-              if (documents.length === 0) {
-                return (
-                  <EmptyState
-                    icon="document-text-outline"
-                    title="Your vault is empty"
-                    message="Start by adding a document"
-                    actionLabel="Add Document"
-                    onAction={() => router.push("/add-document" as never)}
-                  />
-                );
-              }
-              if (selectedCategory) {
-                return (
-                  <EmptyState
-                    icon="folder-outline"
-                    title={`No ${selectedCategory} documents`}
-                    message="Add a document to this category"
-                    actionLabel="Clear Category"
-                    onAction={() => setSelectedCategory(null)}
-                  />
-                );
-              }
-              return (
-                <EmptyState
-                  icon="document-text-outline"
-                  title="No documents found"
-                  message="No matches found for your current filters."
-                  actionLabel="Clear Filters"
-                  onAction={() => {
-                    setSelectedTab("All");
-                    setSelectedCategory(null);
-                  }}
-                />
-              );
-            })()
+            renderEmptyState()
           )}
         </ScrollView>
 
         {/* Floating Action Button (FAB) */}
-        <View className="absolute bottom-5 right-6" style={styles.fabWrap}>
-          <Pressable
-            onPress={() => router.push("/add-document" as never)}
-            accessibilityRole="button"
-            accessibilityLabel="Add new document"
-            className="floating-action-button active:opacity-90"
-            style={({ pressed }) => [
-              pressed && { transform: [{ scale: 0.94 }] },
-            ]}
+        {!isSelectionMode && (
+          <View className="absolute bottom-5 right-6" style={styles.fabWrap}>
+            <Pressable
+              onPress={() => router.push("/add-document" as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Add new document"
+              className="floating-action-button active:opacity-90"
+              style={({ pressed }) => [
+                pressed && { transform: [{ scale: 0.94 }] },
+              ]}
+            >
+              <Feather name="plus" size={26} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Sticky/Floating Bottom Selection Action Bar */}
+        {isSelectionMode && (
+          <View
+            style={styles.bottomBarShadow}
+            className="absolute bottom-5 left-6 right-6 bg-surface border border-border/60 rounded-2xl p-4 flex-row justify-between items-center z-[200]"
           >
-            <Feather name="plus" size={26} color="#FFFFFF" />
-          </Pressable>
-        </View>
+            <View>
+              <Text className="text-body-md text-primary font-bold">
+                {selectedFolderNames.size > 0 && `${selectedFolderNames.size} folder${selectedFolderNames.size !== 1 ? "s" : ""}`}
+                {selectedFolderNames.size > 0 && selectedDocumentIds.size > 0 && " & "}
+                {selectedDocumentIds.size > 0 && `${selectedDocumentIds.size} file${selectedDocumentIds.size !== 1 ? "s" : ""}`}
+                {selectedFolderNames.size === 0 && selectedDocumentIds.size === 0 && "0 items"} selected
+              </Text>
+            </View>
+            <View className="flex-row gap-2">
+              <Pressable
+                onPress={handleExitSelection}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel selection mode"
+                className="bg-background border border-border px-4 py-2.5 rounded-xl active:opacity-75 min-h-11 justify-center"
+              >
+                <Text className="text-body-md font-semibold text-primary">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (selectedDocumentIds.size === 0 && selectedFolderNames.size === 0) {
+                    Alert.alert("Nothing Selected", "Please select at least one item to delete.");
+                    return;
+                  }
+                  setIsBulkDeleteModalVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Delete selected items"
+                className="bg-danger px-4 py-2.5 rounded-xl flex-row items-center active:opacity-75 min-h-11 justify-center"
+              >
+                <Feather name="trash-2" size={16} color="white" />
+                <Text className="text-body-md font-semibold text-white ml-2">Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Folder Create/Rename Custom Modal */}
@@ -598,6 +783,65 @@ export default function DocumentsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Folder Options Action Sheet */}
+      <ActionSheet
+        visible={selectedFolderOptions !== null}
+        onClose={() => setSelectedFolderOptions(null)}
+        title={selectedFolderOptions ? `Manage Folder: ${selectedFolderOptions}` : "Folder Options"}
+        options={
+          selectedFolderOptions
+            ? [
+                {
+                  label: "Rename Folder",
+                  icon: "edit-2",
+                  onPress: () => openFolderModal(selectedFolderOptions),
+                },
+                {
+                  label: "Delete Folder",
+                  icon: "trash-2",
+                  isDestructive: true,
+                  onPress: () => triggerFolderDelete(selectedFolderOptions),
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* Delete Folder Confirmation Modal */}
+      <ConfirmationModal
+        visible={isDeleteFolderModalVisible}
+        onClose={() => {
+          setIsDeleteFolderModalVisible(false);
+          setFolderToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteFolder}
+        title="Delete Folder"
+        message={
+          folderToDelete
+            ? (categoryCounts[folderToDelete] || 0) > 0
+              ? `Are you sure you want to delete the folder "${folderToDelete}"? The ${categoryCounts[folderToDelete]} document(s) inside will be moved to the "Other" folder.`
+              : `Are you sure you want to delete the folder "${folderToDelete}"?`
+            : ""
+        }
+        confirmLabel="Delete"
+        isDestructive
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={isBulkDeleteModalVisible}
+        onClose={() => setIsBulkDeleteModalVisible(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title="Delete Selected Items"
+        message={`Are you sure you want to permanently delete the selected ${
+          selectedFolderNames.size > 0 ? `${selectedFolderNames.size} folder(s)` : ""
+        }${selectedFolderNames.size > 0 && selectedDocumentIds.size > 0 ? " and " : ""}${
+          selectedDocumentIds.size > 0 ? `${selectedDocumentIds.size} document(s)` : ""
+        }? All associated notifications and files will be removed. This action cannot be undone.`}
+        confirmLabel="Delete"
+        isDestructive
+      />
     </View>
   );
 }
@@ -623,5 +867,12 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  bottomBarShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
 });

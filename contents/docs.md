@@ -1,3 +1,8 @@
+> **⚠️ REFERENCE ONLY — NOT IN USE**
+> This file documents `react-native-document-scanner-plugin`, which is **NOT installed** in Zentra.
+> The project uses `expo-document-picker` instead (see `package.json`).
+> This content is kept for reference purposes only. Do not install or use this package without explicit approval.
+
 # React Native Document Scanner
 
 [![Npm package version](https://img.shields.io/npm/v/react-native-document-scanner-plugin/latest.svg?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/react-native-document-scanner-plugin) [![npm dev dependency version](https://img.shields.io/npm/dependency-version/react-native-document-scanner-plugin/dev/react-native?color=61DAFB&logo=react&style=for-the-badge)](https://github.com/WebsiteBeaver/react-native-document-scanner-plugin/blob/master/package.json)

@@ -19,6 +19,7 @@ import { useUser, useAuth } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import NotificationToggle from "@/components/NotificationToggle";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import {
   cancelAllNotifications,
   scheduleDocumentNotifications,
@@ -31,9 +32,15 @@ import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requireOptionalNativeModule } from "expo-modules-core";
 
+interface GlobalWithNativeFlags {
+  __isImagePickerNativeAvailable?: boolean;
+}
+
+const globalWithFlags = globalThis as GlobalWithNativeFlags;
+
 const isImagePickerNativeAvailable =
-  typeof (globalThis as any).__isImagePickerNativeAvailable === "boolean"
-    ? (globalThis as any).__isImagePickerNativeAvailable
+  typeof globalWithFlags.__isImagePickerNativeAvailable === "boolean"
+    ? globalWithFlags.__isImagePickerNativeAvailable
     : !!requireOptionalNativeModule("ExponentImagePicker");
 
 const safeRequireImagePicker = () => {
@@ -69,9 +76,18 @@ export default function ProfileScreen() {
     clearAllData,
   } = useDocumentStore();
 
+  const isMountedRef = React.useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isNameModalVisible, setIsNameModalVisible] = useState(false);
+  const [isSignOutModalVisible, setIsSignOutModalVisible] = useState(false);
+  const [isDeleteAllDataModalVisible, setIsDeleteAllDataModalVisible] = useState(false);
   const [formFirstName, setFormFirstName] = useState("");
   const [formLastName, setFormLastName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
@@ -176,11 +192,15 @@ export default function ProfileScreen() {
             await user?.setProfileImage({
               file: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
             });
-            setIsUploading(false);
+            if (isMountedRef.current) {
+              setIsUploading(false);
+            }
           } catch (err) {
             console.error(err);
-            setIsUploading(false);
-            Alert.alert("Upload Failed", "Failed to update profile photo.");
+            if (isMountedRef.current) {
+              setIsUploading(false);
+              Alert.alert("Upload Failed", "Failed to update profile photo.");
+            }
           }
         }, 1000);
         return;
@@ -200,7 +220,7 @@ export default function ProfileScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.6,
@@ -242,11 +262,15 @@ export default function ProfileScreen() {
             await user?.setProfileImage({
               file: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150",
             });
-            setIsUploading(false);
+            if (isMountedRef.current) {
+              setIsUploading(false);
+            }
           } catch (err) {
             console.error(err);
-            setIsUploading(false);
-            Alert.alert("Upload Failed", "Failed to update profile photo.");
+            if (isMountedRef.current) {
+              setIsUploading(false);
+              Alert.alert("Upload Failed", "Failed to update profile photo.");
+            }
           }
         }, 1000);
         return;
@@ -266,7 +290,7 @@ export default function ProfileScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.6,
@@ -309,52 +333,34 @@ export default function ProfileScreen() {
 
   // Sign out confirmation handler
   const handleSignOut = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut();
-              setUser(null);
-              router.replace("/(auth)/sign-in");
-            } catch (err) {
-              console.error("Error signing out:", err);
-              Alert.alert("Error", "Failed to sign out. Please try again.");
-            }
-          },
-        },
-      ]
-    );
+    setIsSignOutModalVisible(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    try {
+      await signOut();
+      setUser(null);
+      router.replace("/(auth)/sign-in");
+    } catch (err) {
+      console.error("Error signing out:", err);
+      Alert.alert("Error", "Failed to sign out. Please try again.");
+    }
   };
 
   // Delete all documents confirmation handler
   const handleDeleteAllData = () => {
-    Alert.alert(
-      "Delete All Data",
-      "This permanently deletes all documents and cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await cancelAllNotifications();
-              clearAllData();
-              Alert.alert("Success", "All document data has been deleted.");
-            } catch (err) {
-              console.error("Error deleting data:", err);
-              Alert.alert("Error", "Failed to clear notifications or data.");
-            }
-          },
-        },
-      ]
-    );
+    setIsDeleteAllDataModalVisible(true);
+  };
+
+  const handleConfirmDeleteAllData = async () => {
+    try {
+      await cancelAllNotifications();
+      clearAllData();
+      Alert.alert("Success", "All document data has been deleted.");
+    } catch (err) {
+      console.error("Error deleting data:", err);
+      Alert.alert("Error", "Failed to clear notifications or data.");
+    }
   };
 
   // Toggle advance notice days chip handler
@@ -369,11 +375,10 @@ export default function ProfileScreen() {
     updateNotificationSettings({ advanceNoticeDays: updatedDays });
 
     if (notificationSettings.globalEnabled) {
-      for (const doc of documents) {
-        if (doc.notificationsEnabled) {
-          await scheduleDocumentNotifications(doc, updatedDays);
-        }
-      }
+      const promises = documents
+        .filter((doc) => doc.notificationsEnabled)
+        .map((doc) => scheduleDocumentNotifications(doc, updatedDays));
+      await Promise.all(promises);
     }
   };
 
@@ -389,10 +394,7 @@ export default function ProfileScreen() {
         }}
       >
         {/* Header title */}
-        <View
-          className="px-6 pt-6 mb-4"
-          style={{ paddingTop: insets.top > 0 ? insets.top : 16 }}
-        >
+        <View className="px-6 pt-6 mb-4">
           <Text className="text-h1 text-primary font-bold">Profile</Text>
         </View>
 
@@ -549,14 +551,15 @@ export default function ProfileScreen() {
                   if (!enabled) {
                     await cancelAllNotifications();
                   } else {
-                    for (const doc of documents) {
-                      if (doc.notificationsEnabled) {
-                        await scheduleDocumentNotifications(
+                    const promises = documents
+                      .filter((doc) => doc.notificationsEnabled)
+                      .map((doc) =>
+                        scheduleDocumentNotifications(
                           doc,
                           notificationSettings.advanceNoticeDays,
-                        );
-                      }
-                    }
+                        ),
+                      );
+                    await Promise.all(promises);
                   }
                 }}
                 label="Global Notifications"
@@ -797,6 +800,28 @@ export default function ProfileScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Sign Out Confirmation Modal */}
+      <ConfirmationModal
+        visible={isSignOutModalVisible}
+        onClose={() => setIsSignOutModalVisible(false)}
+        onConfirm={handleConfirmSignOut}
+        title="Sign Out"
+        message="Are you sure you want to sign out of Zentra?"
+        confirmLabel="Sign Out"
+        isDestructive
+      />
+
+      {/* Delete All Data Confirmation Modal */}
+      <ConfirmationModal
+        visible={isDeleteAllDataModalVisible}
+        onClose={() => setIsDeleteAllDataModalVisible(false)}
+        onConfirm={handleConfirmDeleteAllData}
+        title="Delete All Data"
+        message="This permanently deletes all documents from your vault and cancels all reminders. This action is irreversible."
+        confirmLabel="Delete All"
+        isDestructive
+      />
     </View>
   );
 }

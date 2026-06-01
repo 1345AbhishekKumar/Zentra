@@ -1,8 +1,7 @@
 import { colors } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
-import * as Updates from "expo-updates";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, Platform, Alert } from "react-native";
 
 interface ErrorScreenProps {
   error: Error | null;
@@ -11,10 +10,32 @@ interface ErrorScreenProps {
 
 export default function ErrorScreen({ error, onReset }: ErrorScreenProps) {
   const handleRestart = async () => {
-    try {
-      await Updates.reloadAsync();
-    } catch (e) {
-      console.error("Failed to reload app via Updates.reloadAsync:", e);
+    let isUpdatesAvailable = false;
+    if (Platform.OS !== "web") {
+      try {
+        const { requireOptionalNativeModule } = require("expo-modules-core");
+        isUpdatesAvailable = !!requireOptionalNativeModule("ExpoUpdates");
+      } catch {
+        isUpdatesAvailable = false;
+      }
+    }
+
+    if (isUpdatesAvailable) {
+      try {
+        const Updates = require("expo-updates");
+        await Updates.reloadAsync();
+      } catch (e) {
+        console.error("Failed to reload app via Updates.reloadAsync:", e);
+        Alert.alert(
+          "Restart Failed",
+          "Could not restart the app automatically. Please restart it manually."
+        );
+      }
+    } else {
+      Alert.alert(
+        "Restart Unsupported",
+        "App restart is not supported in this environment. Please close and reopen the app manually."
+      );
     }
   };
 

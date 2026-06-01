@@ -74,7 +74,7 @@ function InitialLayout() {
         const documents = useDocumentStore.getState().documents;
         const exists = documents.some((doc) => doc.id === documentId);
         if (exists) {
-          router.replace(`/document/${documentId}` as any);
+          router.replace(`/document/${documentId}`);
         }
       }
     })();
@@ -108,7 +108,7 @@ export default function RootLayout() {
       // @ts-ignore
       const originalHandler = ErrorUtils.getGlobalHandler();
       // @ts-ignore
-      ErrorUtils.setGlobalHandler((error: any, isFatal: boolean) => {
+      ErrorUtils.setGlobalHandler((error: Error, isFatal: boolean) => {
         console.error("[Global Error]", error, "Fatal:", isFatal);
         if (originalHandler) {
           originalHandler(error, isFatal);

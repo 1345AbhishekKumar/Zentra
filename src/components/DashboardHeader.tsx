@@ -10,18 +10,21 @@ import { expiryUrgency } from "@/lib/date";
 export default function DashboardHeader() {
   const { user } = useUser();
   const router = useRouter();
-  const { documents, readAlerts = [] } = useDocumentStore();
+  const documents = useDocumentStore((state) => state.documents);
+  const readAlerts = useDocumentStore((state) => state.readAlerts || []);
 
-  const hasExpiredOrCritical = documents.some((doc) => {
-    const urgency = expiryUrgency(doc.expiryDate);
-    const isUnread = !readAlerts.includes(doc.id);
-    return (urgency === "expired" || urgency === "critical") && isUnread;
-  });
+  const hasExpiredOrCritical = React.useMemo(() => {
+    return documents.some((doc) => {
+      const urgency = expiryUrgency(doc.expiryDate);
+      const isUnread = !readAlerts.includes(doc.id);
+      return (urgency === "expired" || urgency === "critical") && isUnread;
+    });
+  }, [documents, readAlerts]);
 
   const displayName = user?.firstName || "User";
 
   return (
-    <View className="w-full flex-col pt-3 pb-5">
+    <View className="w-full flex-col pt-6 pb-5">
       {/* Top row: Brand name + Bell */}
       <View className="w-full flex-row justify-between items-center">
         <Text

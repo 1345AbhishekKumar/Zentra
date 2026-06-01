@@ -35,6 +35,18 @@ interface DatePickerFieldProps {
   error?: string;
 }
 
+const webInputStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  opacity: 0,
+  width: "100%",
+  height: "100%",
+  cursor: "pointer",
+};
+
 export default function DatePickerField({
   label,
   value,
@@ -100,7 +112,7 @@ export default function DatePickerField({
       <Pressable
         onPress={handleTap}
         accessibilityRole="button"
-        accessibilityLabel={`Expiry Date: ${value ? formatDate(value) : "Not selected"}`}
+        accessibilityLabel={`${displayLabel}: ${value ? formatDate(value) : "Not selected"}`}
         className="bg-surface rounded-xl flex-row items-center justify-between w-full relative border border-border px-4 h-[52px]"
         style={({ pressed }) => [
           {
@@ -112,7 +124,7 @@ export default function DatePickerField({
                 : colors.border,
             borderStyle: "solid",
           },
-          (pressed && Platform.OS !== "web" && styles.pressedScale) as any,
+          pressed && Platform.OS !== "web" ? styles.pressedScale : null,
         ]}
       >
         <Text
@@ -136,7 +148,7 @@ export default function DatePickerField({
             value={value}
             min={format(startOfToday(), "yyyy-MM-dd")}
             onChange={(e) => onChange(e.target.value)}
-            style={styles.webInputOverlay as any}
+            style={webInputStyle}
           />
         )}
       </Pressable>
@@ -156,9 +168,9 @@ export default function DatePickerField({
           animationType="slide"
           onRequestClose={handleCancel}
         >
-          <View style={styles.modalOverlay as any}>
+          <View style={styles.modalOverlay}>
             {/* Click backdrop to dismiss */}
-            <Pressable style={styles.flexOne as any} onPress={handleCancel} />
+            <Pressable style={styles.flexOne} onPress={handleCancel} />
 
             {/* Bottom Sheet Card */}
             <View
@@ -179,7 +191,7 @@ export default function DatePickerField({
                   </Text>
                 </Pressable>
                 <Text className="text-body-lg text-primary font-bold font-display">
-                  Expiry Date
+                  {displayLabel}
                 </Text>
                 <Pressable
                   onPress={handleDone}
@@ -314,15 +326,4 @@ const styles = StyleSheet.create({
   flexOne: {
     flex: 1,
   },
-  webInputOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0,
-    width: "100%",
-    height: "100%",
-    cursor: "pointer",
-  } as any,
 });

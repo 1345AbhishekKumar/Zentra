@@ -6,7 +6,14 @@ Let users view the file they attached to a document. Tapping a "View File" butto
 
 **Steps:**
 
-1. Install `expo-file-system` (already in Expo managed workflow) and `react-native-pdf` for PDF rendering.
+1. Run `bun add expo-file-system react-native-pdf` for PDF rendering.
+
+   > **⚠️ Before adding `react-native-pdf`:** This package requires a dev-client build (not Expo Go). Get explicit approval before installing. Consider using `expo-sharing` (already available) as a simpler alternative that opens files in the device's default viewer without an in-app renderer.
+   >
+   > **Approval checklist:**
+   > - [ ] Confirmed project uses dev-client (not Expo Go)
+   > - [ ] Confirmed in-app PDF viewing is required (expo-sharing is insufficient)
+   > - [ ] Approved by project owner
 
    > Note: `react-native-pdf` requires a bare or dev-client workflow. If the project is still in Expo Go managed workflow, use `expo-sharing` to open the file externally in the device's default viewer instead, and skip the in-app PDF renderer. Choose based on the current project setup.
 

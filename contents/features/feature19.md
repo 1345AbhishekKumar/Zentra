@@ -6,7 +6,7 @@ Add the ability to attach a real file to a document entry. The file stays on-dev
 
 **Steps:**
 
-1. Install `expo-image-picker` and `expo-document-picker`.
+1. Run `bun add expo-image-picker expo-document-picker`.
 
 2. Create `components/FilePickerButton.tsx`:
    - Props: `onFilePicked: (result: PickedFile) => void`, `currentUri?: string`

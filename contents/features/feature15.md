@@ -24,7 +24,7 @@ Wire the notification bell icon on the Home screen to a real Alerts screen that 
    - **Each alert row**:
      - File type icon (color-coded)
      - Document name (bold)
-     - `ExpiryBadge` (from feature10)
+     - `ExpiryBadge` (from feature11)
      - Expiry date formatted via `lib/date.ts formatDate()`
      - Tapping the row navigates to `app/document/[id]`
    - **Empty state**: `EmptyState` with icon "checkmark-circle-outline", title "All clear!", message "No documents expiring in the next 90 days"

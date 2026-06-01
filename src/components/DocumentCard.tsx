@@ -12,6 +12,9 @@ interface DocumentCardProps {
   viewMode?: "list" | "grid";
   onPress: () => void;
   onFavoritePress: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onLongPress?: () => void;
 }
 
 type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
@@ -68,6 +71,9 @@ export default function DocumentCard({
   viewMode = "list",
   onPress,
   onFavoritePress,
+  isSelectionMode = false,
+  isSelected = false,
+  onLongPress,
 }: DocumentCardProps) {
   const { iconName, iconColor, bgColor } = getFileVisuals(doc.fileType);
   const dateStr = formatAddedDate(doc.createdAt);
@@ -77,6 +83,8 @@ export default function DocumentCard({
     return (
       <Pressable
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={200}
         accessibilityRole="button"
         accessibilityLabel={`Open ${doc.name}`}
         className="bg-surface rounded-2xl p-4 border border-border/60 active:opacity-90 flex-1 m-1.5"
@@ -89,21 +97,31 @@ export default function DocumentCard({
           >
             <Feather name={iconName} size={22} color={iconColor} />
           </View>
-          <Pressable
-            onPress={onFavoritePress}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              doc.isFavorite ? "Remove from favorites" : "Add to favorites"
-            }
-            className="w-8 h-8 rounded-full items-center justify-center bg-transparent active:bg-border/20"
-          >
-            <Ionicons
-              name={doc.isFavorite ? "star" : "star-outline"}
-              size={18}
-              color={doc.isFavorite ? colors.warning : colors.secondary}
-            />
-          </Pressable>
+          {isSelectionMode ? (
+            <View className="w-8 h-8 items-center justify-center">
+              <Feather
+                name={isSelected ? "check-circle" : "circle"}
+                size={20}
+                color={isSelected ? colors.accent : "#B3B3B3"}
+              />
+            </View>
+          ) : (
+            <Pressable
+              onPress={onFavoritePress}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                doc.isFavorite ? "Remove from favorites" : "Add to favorites"
+              }
+              className="w-8 h-8 rounded-full items-center justify-center bg-transparent active:bg-border/20"
+            >
+              <Ionicons
+                name={doc.isFavorite ? "star" : "star-outline"}
+                size={18}
+                color={doc.isFavorite ? colors.warning : colors.secondary}
+              />
+            </Pressable>
+          )}
         </View>
 
         <Text
@@ -128,6 +146,8 @@ export default function DocumentCard({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={200}
       accessibilityRole="button"
       accessibilityLabel={`Open ${doc.name}`}
       className="flex-row items-center px-4 py-3 bg-surface active:bg-background border-b border-border/40"
@@ -154,21 +174,31 @@ export default function DocumentCard({
         </View>
       </View>
 
-      <Pressable
-        onPress={onFavoritePress}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityRole="button"
-        accessibilityLabel={
-          doc.isFavorite ? "Remove from favorites" : "Add to favorites"
-        }
-        className="w-9 h-9 rounded-full items-center justify-center active:bg-border/20"
-      >
-        <Ionicons
-          name={doc.isFavorite ? "star" : "star-outline"}
-          size={20}
-          color={doc.isFavorite ? colors.warning : colors.secondary}
-        />
-      </Pressable>
+      {isSelectionMode ? (
+        <View className="w-9 h-9 items-center justify-center mr-1">
+          <Feather
+            name={isSelected ? "check-circle" : "circle"}
+            size={22}
+            color={isSelected ? colors.accent : "#B3B3B3"}
+          />
+        </View>
+      ) : (
+        <Pressable
+          onPress={onFavoritePress}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            doc.isFavorite ? "Remove from favorites" : "Add to favorites"
+          }
+          className="w-9 h-9 rounded-full items-center justify-center active:bg-border/20"
+        >
+          <Ionicons
+            name={doc.isFavorite ? "star" : "star-outline"}
+            size={20}
+            color={doc.isFavorite ? colors.warning : colors.secondary}
+          />
+        </Pressable>
+      )}
     </Pressable>
   );
 }

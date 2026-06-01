@@ -4,7 +4,7 @@ Read AGENTS.md first and follow it strictly.
 
 Build a real global search screen that the Home screen's search bar navigates to. Searches across document names, categories, notes, and expiry dates in one place.
 
-first check already have the search system , if we have then improve it.
+First check if we already have the search system; if we do, improve it.
 
 
 **Steps:**

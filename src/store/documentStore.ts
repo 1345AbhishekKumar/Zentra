@@ -8,6 +8,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+export const DEFAULT_FOLDERS: string[] = ["Personal", "Work", "Finance", "Health", "Other"];
+
 interface DocumentStore {
   // State
   documents: ZentraDocument[];
@@ -24,6 +26,7 @@ interface DocumentStore {
   addDocument: (doc: ZentraDocument) => void;
   updateDocument: (id: string, updates: Partial<ZentraDocument>) => void;
   deleteDocument: (id: string) => void;
+  deleteMultipleDocuments: (ids: string[]) => void;
   toggleFavorite: (id: string) => void;
   toggleNotification: (id: string) => void;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
@@ -32,6 +35,7 @@ interface DocumentStore {
   addFolder: (name: string) => boolean;
   renameFolder: (oldName: string, newName: string) => boolean;
   deleteFolder: (name: string) => void;
+  deleteMultipleFolders: (names: string[]) => void;
   markAlertAsRead: (id: string) => void;
   markAllAlertsAsRead: (ids: string[]) => void;
 }
@@ -45,7 +49,7 @@ export const useDocumentStore = create<DocumentStore>()(
     (set, get) => ({
       // State
       documents: [],
-      folders: ["Personal", "Work", "Finance", "Health", "Other"],
+      folders: [...DEFAULT_FOLDERS],
       notificationSettings: {
         globalEnabled: true,
         advanceNoticeDays: [7, 30, 90],
@@ -90,45 +94,47 @@ export const useDocumentStore = create<DocumentStore>()(
       },
 
       updateDocument: (id, updates) => {
-        const { documents, notificationSettings, readAlerts = [] } = get();
-        const existingDoc = documents.find((doc) => doc.id === id);
-        const updatedAt = new Date().toISOString();
-        let updatedDoc: ZentraDocument | undefined;
+        try {
+          const { documents, notificationSettings, readAlerts = [] } = get();
+          const existingDoc = documents.find((doc) => doc.id === id);
+          const updatedAt = new Date().toISOString();
+          let updatedDoc: ZentraDocument | undefined;
 
-        const updatedDocs = documents.map((doc) => {
-          if (doc.id !== id) return doc;
-          updatedDoc = { ...doc, ...updates, updatedAt };
-          return updatedDoc;
-        });
+          const updatedDocs = documents.map((doc) => {
+            if (doc.id !== id) return doc;
+            updatedDoc = { ...doc, ...updates, updatedAt };
+            return updatedDoc;
+          });
 
-        const expiryDateChanged = existingDoc && updates.expiryDate && updates.expiryDate !== existingDoc.expiryDate;
-        const updatedReadAlerts = expiryDateChanged
-          ? readAlerts.filter((alertId) => alertId !== id)
-          : readAlerts;
+          const expiryDateChanged = existingDoc && updates.expiryDate && updates.expiryDate !== existingDoc.expiryDate;
+          const updatedReadAlerts = expiryDateChanged
+            ? readAlerts.filter((alertId) => alertId !== id)
+            : readAlerts;
 
-        set({
-          documents: updatedDocs,
-          upcomingExpirations: computeUpcoming(updatedDocs),
-          readAlerts: updatedReadAlerts,
-        });
+          set({
+            documents: updatedDocs,
+            upcomingExpirations: computeUpcoming(updatedDocs),
+            readAlerts: updatedReadAlerts,
+          });
 
-        if (
-          existingDoc &&
-          updates.expiryDate &&
-          updates.expiryDate !== existingDoc.expiryDate &&
-          (updatedDoc?.notificationsEnabled ??
-            existingDoc.notificationsEnabled) &&
-          notificationSettings.globalEnabled
-        ) {
-          void (async () => {
-            await cancelDocumentNotifications(existingDoc.id);
-            if (updatedDoc) {
-              await scheduleDocumentNotifications(
-                updatedDoc,
-                notificationSettings.advanceNoticeDays,
-              );
-            }
-          })();
+          if (
+            expiryDateChanged &&
+            (updatedDoc?.notificationsEnabled ??
+              existingDoc.notificationsEnabled) &&
+            notificationSettings.globalEnabled
+          ) {
+            void (async () => {
+              await cancelDocumentNotifications(existingDoc.id);
+              if (updatedDoc) {
+                await scheduleDocumentNotifications(
+                  updatedDoc,
+                  notificationSettings.advanceNoticeDays,
+                );
+              }
+            })();
+          }
+        } catch (error) {
+          console.error("[DocumentStore] Failed to update document:", error);
         }
       },
 
@@ -145,6 +151,22 @@ export const useDocumentStore = create<DocumentStore>()(
           });
         } catch (error) {
           console.error("[DocumentStore] Failed to delete document:", error);
+        }
+      },
+
+      deleteMultipleDocuments: (ids) => {
+        try {
+          set((state) => {
+            const updatedDocs = state.documents.filter((doc) => !ids.includes(doc.id));
+            const readAlerts = state.readAlerts || [];
+            return {
+              documents: updatedDocs,
+              upcomingExpirations: computeUpcoming(updatedDocs),
+              readAlerts: readAlerts.filter((alertId) => !ids.includes(alertId)),
+            };
+          });
+        } catch (error) {
+          console.error("[DocumentStore] Failed to delete multiple documents:", error);
         }
       },
 
@@ -202,7 +224,7 @@ export const useDocumentStore = create<DocumentStore>()(
         set({
           documents: [],
           upcomingExpirations: [],
-          folders: ["Personal", "Work", "Finance", "Health", "Other"],
+          folders: [...DEFAULT_FOLDERS],
           readAlerts: [],
         });
       },
@@ -268,6 +290,30 @@ export const useDocumentStore = create<DocumentStore>()(
           documents: updatedDocs,
         });
       },
+
+      deleteMultipleFolders: (names) => {
+        const lowercaseNames = names.map((n) => n.toLowerCase());
+        const { folders, documents } = get();
+        const updatedFolders = folders.filter(
+          (f) => !lowercaseNames.includes(f.toLowerCase()),
+        );
+        // Ensure "Other" exists
+        const otherExists = updatedFolders.some(
+          (f) => f.toLowerCase() === "other",
+        );
+        if (!otherExists) {
+          updatedFolders.push("Other");
+        }
+        const updatedDocs = documents.map((doc) =>
+          lowercaseNames.includes(doc.category.toLowerCase())
+            ? { ...doc, category: "Other", updatedAt: new Date().toISOString() }
+            : doc,
+        );
+        set({
+          folders: updatedFolders,
+          documents: updatedDocs,
+        });
+      },
     }),
     {
       name: "zentra-document-storage",
@@ -286,11 +332,11 @@ export const useDocumentStore = create<DocumentStore>()(
               state.recomputeUpcoming();
               // Ensure folders is initialized
               if (!state.folders || state.folders.length === 0) {
-                state.folders = ["Personal", "Work", "Finance", "Health", "Other"];
+                useDocumentStore.setState({ folders: [...DEFAULT_FOLDERS] });
               }
               // Ensure readAlerts is initialized
               if (!state.readAlerts) {
-                state.readAlerts = [];
+                useDocumentStore.setState({ readAlerts: [] });
               }
             }
             state.setHasHydrated(true);

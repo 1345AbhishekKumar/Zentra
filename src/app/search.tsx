@@ -116,7 +116,10 @@ export default function SearchScreen() {
       try {
         const stored = await AsyncStorage.getItem("zentra_recent_searches");
         if (stored) {
-          setRecentSearches(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+            setRecentSearches(parsed);
+          }
         }
       } catch (error) {
         console.error("Failed to load recent searches", error);
@@ -135,27 +138,23 @@ export default function SearchScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 3. Debounce: Save search query to history when user stops typing for 300ms
-  useEffect(() => {
+  // 3. Save search query to history on search submit
+  const handleSearchSubmit = async () => {
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    const timer = setTimeout(async () => {
-      setRecentSearches((prev) => {
-        const filtered = prev.filter(
-          (item) => item.toLowerCase() !== trimmed.toLowerCase()
-        );
-        const updated = [trimmed, ...filtered].slice(0, 5);
-        void AsyncStorage.setItem(
-          "zentra_recent_searches",
-          JSON.stringify(updated)
-        );
-        return updated;
-      });
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [query]);
+    setRecentSearches((prev) => {
+      const filtered = prev.filter(
+        (item) => item.toLowerCase() !== trimmed.toLowerCase()
+      );
+      const updated = [trimmed, ...filtered].slice(0, 5);
+      void AsyncStorage.setItem(
+        "zentra_recent_searches",
+        JSON.stringify(updated)
+      );
+      return updated;
+    });
+  };
 
   // 4. Search logic: filters documents by name, category, notes, and expiryDate formatted via formatDate
   const searchResults = useMemo(() => {
@@ -228,6 +227,7 @@ export default function SearchScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
+            onSubmitEditing={handleSearchSubmit}
           />
           {query.length > 0 && (
             <Pressable

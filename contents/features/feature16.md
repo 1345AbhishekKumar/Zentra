@@ -13,6 +13,7 @@ Build the `NotificationToggle` component and wire per-document notification sche
      - If no permission: call `requestPermissions()`. If still denied after request, show an alert: "Please enable notifications in your device settings to receive expiry reminders." and revert the toggle
      - If permission granted: call `onToggle(true)`
    - When toggled OFF: call `onToggle(false)`
+   - Pre-step: Read `DESIGN.md` for theme tokens and conventions before using color values.
    - Switch active color: `Colors.accent` (`#4F46E5`)
 
 2. Add `NotificationToggle` to the Document Details screen (`app/document/[id].tsx`):

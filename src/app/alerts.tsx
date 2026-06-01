@@ -105,18 +105,10 @@ export default function AlertsScreen() {
   const totalAlertsCount = allListedDocs.length;
   const hasUnread = allListedDocs.some((doc) => !readAlertsSet.has(doc.id));
 
-  // Compute stat counts using expiryUrgency helper across all docs
-  const expiredCount = documents.filter(
-    (doc) => expiryUrgency(doc.expiryDate) === "expired"
-  ).length;
-  
-  const criticalCount = documents.filter(
-    (doc) => expiryUrgency(doc.expiryDate) === "critical"
-  ).length;
-  
-  const warningCount = documents.filter(
-    (doc) => expiryUrgency(doc.expiryDate) === "warning"
-  ).length;
+  // Compute stat counts using the same bucketing logic as the list sections
+  const expiredCount = expiredDocs.length;
+  const criticalCount = thisWeekDocs.length;
+  const warningCount = thisMonthDocs.length;
 
   const handlePressRow = (docId: string) => {
     markAlertAsRead(docId);

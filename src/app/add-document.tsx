@@ -5,6 +5,7 @@ import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { saveFilePermanently } from "@/lib/share";
 import {
     AccessibilityInfo,
     KeyboardAvoidingView,
@@ -28,7 +29,15 @@ export default function AddDocumentScreen() {
   };
 
   const handleFormSubmit = async (newDoc: ZentraDocument) => {
-    // 1. Persist the document in the local store
+    // 1. Save file permanently if there is an attachment
+    if (newDoc.localUri) {
+      const permanentUri = await saveFilePermanently(newDoc.localUri, newDoc.name);
+      if (permanentUri) {
+        newDoc.localUri = permanentUri;
+      }
+    }
+
+    // 2. Persist the document in the local store
     addDocument(newDoc);
     AccessibilityInfo.announceForAccessibility("Document saved");
 

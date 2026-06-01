@@ -328,5 +328,188 @@ Here is a simple summary of the errors encountered, their root causes, and how w
 - **Dynamic Announcements (`AccessibilityInfo`)**: Added on-device screen reader notifications. Deleting a document calls `AccessibilityInfo.announceForAccessibility("Document deleted")` inside `document/[id].tsx` to inform blind/visually impaired users immediately.
 - **Standardized HitSlop Objects**: Standardized hitSlop targets on small touchpoints (Favorite stars, clear search Xs, modal close Xs) into explicit object shapes for iOS and Android reliability.
 
+
+---
+
+## 17. Code Quality & Document Consistency Polish
+
+### What Was Done
+- Addressed multiple styling, documentation, logic, and accessibility issues across screens, components, stores, helper libraries, and feature documentation.
+
+### Changes Made
+- **Documentation Polish (`contents/docs.md`, `contents/features/`)**:
+  - Replaced outdated scanner plugin references in `contents/docs.md` with clear "Reference Only" warnings.
+  - Corrected typos, grammatical errors, and feature sources (e.g. `ExpiryBadge` feature source tracking, `FilePickerButton` source tab references) in features files.
+  - Updated all installation commands to use `bun add` instead of `npm/yarn`.
+  - Added warnings and checklists for bare React Native packages (like `react-native-pdf`).
+- **Mount Guards & State Safety (`src/app/(tabs)/profile.tsx`)**:
+  - Introduced `isMountedRef` mount guards to prevent state updates after unmount inside the camera and photo library sandbox timeout functions.
+- **Asynchronous Optimization (`src/app/(tabs)/profile.tsx`)**:
+  - Replaced sequential loop scheduling for local notifications with parallel `Promise.all` scheduling.
+- **Web Styling & Type Safety (`src/components/DatePickerField.tsx`)**:
+  - Defined web input styles as typed `React.CSSProperties` object, removing type assertion overrides (`as any`).
+  - Derived accessibility labels and bottom sheet calendar header titles dynamically from the component's `label` prop.
+  - Cleaned up redundant `as any` casts on native layouts and elements.
+- **Store & State Consistency (`src/store/documentStore.ts`, `src/types/document.ts`)**:
+  - Hoisted default folder literals into a single exported `DEFAULT_FOLDERS` array.
+  - Replaced state mutations in the storage hydration logic (`onRehydrateStorage`) with clean store `set()` calls.
+  - Wrapped `updateDocument` state set and scheduling operations inside a safety-guarded try-catch block.
+  - Refactored `DocumentCategory` as a type-union template to support both literal autocompletes and custom categories.
+- **Form Controls & Date Validation (`src/components/AddDocumentForm.tsx`)**:
+  - Added category fallback list logic to ensure the active category pill is always shown, even if folders are empty or does not contain the selected category.
+  - Updated expiry date validator to bypass future-date checks when editing an existing document and the date remains unchanged.
+- **Notification Settings Integration (`src/app/document/[id].tsx`)**:
+  - Enforced global notification settings (`notificationSettings.globalEnabled`) check during single document notifications toggling.
+- **Alerts Bucketing Logic (`src/app/alerts.tsx`)**:
+  - Synced stat count variables directly to their respective section list lengths to prevent discrepancy between badge numbers and items list count.
+- **Sharing Concurrency (`src/app/document/[id].tsx`)**:
+  - Added a unique `Date.now()` suffix to the temporary plain-text sharing file to prevent concurrent actions clobbering each other.
+- **Centralized Deprecation Cleanup (`src/components/FilePickerButton.tsx`, `src/app/(tabs)/profile.tsx`)**:
+  - Replaced the deprecated `ImagePicker.MediaTypeOptions.Images` with modern `["images"]` string arrays.
+
 ### Verification
-- Verified that all code compiles cleanly by running `bunx tsc --noEmit` which completed with 0 errors.
+- Verified that all code compiles cleanly by running `bunx tsc --noEmit`.
+
+---
+
+## 18. Custom ActionSheet / Options Menu for Three-Dots Icon Buttons
+
+### Problem
+- Tapping the three-dots icon button on the Document Details screen and Folders list screen triggered the default OS-level `Alert.alert` dialog containing options (Edit, Delete, Cancel).
+- This generic pop-up list did not match Zentra's custom typography, colors, borders, and overall premium design system.
+- The three-dots menu buttons on the Recent Documents list on the Home screen index tab did not trigger any action sheet or menu options (empty `onPress` callback).
+
+### Solution
+- **ActionSheet Component (`src/components/ActionSheet.tsx`)**:
+  - Developed a custom, premium JavaScript-based bottom sheet modal wrapper that aligns exactly with Zentra's typography, colors, and layout guidelines.
+  - Implemented a translucent backdrop overlay (`rgba(18, 18, 26, 0.4)`) that dismisses the sheet when tapped.
+  - The menu card features top-rounded corners (`rounded-t-[24px]`) and lists options with clean visual separation, displaying left-aligned Feather icons, medium-weight text, and highlight feedback.
+  - Destructive options (such as "Delete") are colored in Zentra's red danger indicator (`#EF4444`).
+  - Added support for screen readers with accessibility properties (`accessibilityRole="button"`, proper hitSlop, and custom labels).
+- **Document Details (`src/app/document/[id].tsx`)**:
+  - Imported the `<ActionSheet>` component and wired it to open when the details header options button is tapped, allowing user to navigate to edit or delete the document.
+- **Folder List (`src/app/(tabs)/documents.tsx`)**:
+  - Replaced the folder options menu with the custom `<ActionSheet>`, supporting renaming and deleting folders cleanly.
+- **Home Dashboard (`src/app/(tabs)/index.tsx`)**:
+  - Added `onMorePress` props to `RecentDocRow` and state hooks inside `HomeScreen` to toggle the `<ActionSheet>` for the selected document, linking dashboard items directly to edit/delete options.
+
+### Verification
+- Verified type safety and compilation using `bunx tsc --noEmit` which completed successfully with 0 errors.
+
+---
+
+## 19. Startup Crash: "Cannot find native module 'ExpoUpdates'" & Route Missing Default Export
+
+### Problem & Root Cause
+- When starting the application in certain environments (such as standard Expo Go or emulators/simulators without the native Updates package compiled/linked), the application would crash immediately on boot.
+- The error traceback originated from the static import `import * as Updates from "expo-updates";` in `src/components/ErrorScreen.tsx`.
+- The `expo-updates` library attempts to resolve the native module `ExpoUpdates` at the global module scope during initial package evaluation. If missing, it throws a fatal `Cannot find native module 'ExpoUpdates'` error.
+- Because `src/app/_layout.tsx` imports `ErrorBoundary`, which imports `ErrorScreen`, this startup crash halted module loading for the root layout. Metro failed to load `./_layout.tsx` and returned `undefined`, causing Expo Router to report a misleading warning: `Route "./_layout.tsx" is missing the required default export. Ensure a React component is exported as default.`
+
+### Solution
+- **Removed Static Import**: Removed the static `import * as Updates from "expo-updates";` from the top level of `src/components/ErrorScreen.tsx`.
+- **Dynamic Check & Require**: Refactored the `handleRestart` callback in `src/components/ErrorScreen.tsx` to safely evaluate module presence at runtime:
+  - Checked native module availability via `requireOptionalNativeModule("ExpoUpdates")` from `expo-modules-core`.
+  - If available, loaded the module dynamically with `require("expo-updates")` and invoked `Updates.reloadAsync()`.
+  - If unavailable (e.g. running inside Expo Go or on Web), gracefully intercepted the flow and displayed a user-friendly fallback alert using React Native's `Alert.alert` explaining that manual restart is required, instead of crashing the application.
+- **Import Adjustments**: Imported `Platform` and `Alert` from `react-native` to facilitate cross-platform behavior checks and alert notifications.
+
+### Verification
+- Ran the TypeScript type-checker (`bunx tsc --noEmit`) and confirmed the codebase compiles cleanly with 0 errors.
+
+# TypeScript Entrypoint Migration
+
+## Problem
+The codebase was using a JavaScript file (`index.js`) as its primary entry point. While the source files under `src/` were entirely written in TypeScript, having `index.js` as the entrypoint meant the bootstrapping code was untyped and did not conform to the strict TypeScript-only requirement of the codebase.
+
+## Solution
+1. **Created `index.ts`**: Created a new type-safe entry point [index.ts](file:///d:/MyProjects/Expo_Projects/Zentra/index.ts) that handles:
+   - Dynamic check of native module availability for `ExponentImagePicker` and `ExpoDocumentPicker` to prevent crashes in environments without these native binaries (e.g. Expo Go / unlinked simulators).
+   - Safe declaration and assignment of global availability flags (`__isImagePickerNativeAvailable` and `__isDocumentPickerNativeAvailable`) on `globalThis` using a `GlobalWithFlags` TypeScript interface to prevent strict compiler complaints.
+   - Importing the standard Expo Router entry point (`import "expo-router/entry"`).
+2. **Removed `index.js`**: Deleted the old untyped `index.js` file from the workspace.
+3. **Updated Configuration**: Updated [package.json](file:///d:/MyProjects/Expo_Projects/Zentra/package.json) to set the `"main"` entrypoint directly to `"index.ts"`.
+4. **Validation**: Ran the TypeScript compiler checks (`bunx tsc --noEmit`) to verify that the entry point and the rest of the project compile with zero type errors.
+
+---
+
+## 20. Move, Share, and Download Functionalities
+
+### What Was Done
+- Implemented and polished the Move, Share, and Download functionalities on the Document Details screen.
+
+### Changes Made
+- **Move Functionality**:
+  - Added state management (`isMoveSheetVisible`) and a second `<ActionSheet>` component to select folders.
+  - Connected it to the store's `folders` state slice and the `updateDocument` action to update the document's category folder on selection.
+  - Included a visual check icon indicating the active category/folder and added accessibility announcements.
+- **Share & Download Native Protections**:
+  - Implemented the `getSharingModule()` helper function which checks if the `ExpoSharing` native binary is linked/present in the device's environment (via `requireOptionalNativeModule`) before requiring `expo-sharing`. This prevents fatal `Cannot find native module 'ExpoSharing'` runtime crashes on simulators, emulators, or standard Expo Go clients where the sharing package binaries are unlinked.
+  - Reverted the `FileSystem` import back to `expo-file-system/legacy` because the new v56 `expo-file-system` API structure does not expose legacy properties such as `StorageAccessFramework` or `cacheDirectory` required for Android SAF folder storage and text caching.
+  - Added fallback Web Share API and download triggers for web browser clients.
+
+### Verification
+- Tested with `bunx tsc --noEmit` and confirmed zero type errors.
+
+---
+
+## 21. ImagePicker Temporary File Garbage Collection
+
+### Problem
+- Picked document attachments (images, PDFs) were reference-linked directly from their temporary picker location (e.g. `cache/ImagePicker`).
+- The operating system cleans up this temporary cache directory periodically or on app restarts. Consequently, the next time the app tried to view, share, or download a document, it crashed with `java.io.FileNotFoundException` (`ENOENT: No such file or directory`).
+
+### Solution
+- **Permanent File Storage (`src/lib/share.ts`)**:
+  - Implemented the helper function `saveFilePermanently(uri, filename)` which copies a local file URI from the temporary picker cache to the app's permanent sandbox directory (`FileSystem.documentDirectory`).
+- **Form Submission Integration (`src/app/add-document.tsx` & `src/app/edit-document/[id].tsx`)**:
+  - Intercepted the form submit actions to save selected attachments permanently.
+  - Automatically deleted the old permanent attachments from the sandbox directory when they were replaced or when the document was updated/removed.
+
+### Verification
+- Checked that all TypeScript tests pass with `bunx tsc --noEmit`.
+
+---
+
+## 22. Custom Confirmation Modals for Design-System-Compliant Action Prompts
+
+### Problem
+- In Zentra, document deletion, folder deletion, wiping local documents database, and signing out triggered browser-native or default OS-level `Alert.alert` confirm prompts.
+- On Web, these defaulted to standard browser confirm boxes or basic divs that did not match the premium Zentra visual design guidelines (using Outfit display fonts, Inter body copy, and curated Indigo/Crimson colors).
+
+### Solution
+- **`src/components/ConfirmationModal.tsx`**: Created a reusable, centered modal popup styled with NativeWind.
+  - Restructured layout parameters to support both destructive actions (using Crimson danger highlights, warning icons, and alert background themes) and standard actions (using Indigo brand accents and standard buttons).
+  - Designed to render identically on Web, iOS, and Android, completely bypassing native OS alert prompts.
+- **Details Screen (`src/app/document/[id].tsx`)**: Replaced `Alert.alert` with the custom `<ConfirmationModal>` to confirm individual document deletions.
+- **Home Tab (`src/app/(tabs)/index.tsx`)**: Wired the three-dot option menu deletes on Recent Documents list to trigger the custom `<ConfirmationModal>`.
+- **Documents Tab (`src/app/(tabs)/documents.tsx`)**: Integrated `<ConfirmationModal>` for folder deletions, dynamically passing document counts in the description message.
+- **Profile / Settings Screen (`src/app/(tabs)/profile.tsx`)**: Replaced `Alert.alert` prompts for "Sign Out" and "Delete All Documents" actions with custom `<ConfirmationModal>` panels.
+
+### Verification
+- Verified that type safety compiles cleanly with zero errors by running `bunx tsc --noEmit`.
+
+---
+
+## 23. Document Sharing and iOS Download Failures: Fallback to React Native Share API & Rich Sharing Options
+
+### Problem
+- Tapping on "Share" in the Document Details screen either shared the raw attachment file *without* document details (name, expiry date, category, notes) or only shared a plain text summary *without* the attachment image.
+- Additionally, on environments lacking the compiled/linked native binary for `ExpoSharing` (such as simulators/emulators or customized development clients running without built native dependencies), attempting to share or download on iOS displayed blocking alerts.
+
+### Solution
+- **ActionSheet for Sharing Options**:
+  - Implemented an interactive Share Options bottom sheet `<ActionSheet>` in `src/app/document/[id].tsx` (toggled by the "Share" row when the document contains an attachment).
+  - Provides three granular options:
+    1. **"Share Details as Text"**: Shares the text description of the document details via the React Native `Share` module.
+    2. **"Share Raw File"**: Shares the raw attachment file (e.g. PDF/Image) using the native `expo-sharing` library or fallback.
+    3. **"Share Details + Image (HTML)"**: (For image files) Reads the image as a base64 string, compiles a beautifully styled responsive HTML document showing all metadata (name, category, expiry date, status badges, and notes) and embedding the inline image, then exports/shares it as a self-contained `.html` document.
+- **HTML Export Template (`src/lib/share.ts`)**:
+  - Added `generateShareHtml(doc, base64Data)` which returns a premium, styled responsive HTML file matching Zentra's design tokens (linear gradients, cards, layout padding, and status styling).
+- **Graceful Fallbacks & JSI Fixes**:
+  - Standardized fallback routines using React Native's built-in `Share` module inside `src/app/document/[id].tsx` and `src/components/FileViewer.tsx`.
+  - Restored the module registry check `requireOptionalNativeModule("ExpoSharing")` inside `getSharingModule` before requiring `expo-sharing`. Under Metro's bundler, importing a package that runs `requireNativeModule` at its global scope (evaluation time) will throw a fatal build-time/require error in development mode, bypassing JS try-catch blocks. Restoring the query-check completely prevents this crash.
+  - Implemented polite on-screen text fallbacks for Android and unsupported environments: if `expo-sharing` is unavailable, selecting "Share Details + Image (HTML)" or "Share Raw File" on Android will alert the user that file sharing is not supported in the current environment and offer to share the text summary details directly, ensuring that sharing remains functional.
+
+### Verification
+- Verified that all TypeScript types resolve correctly and that the project compiles with zero compilation errors by running `bunx tsc --noEmit`.

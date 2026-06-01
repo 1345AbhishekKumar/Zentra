@@ -12,6 +12,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { saveFilePermanently } from "@/lib/share";
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function EditDocumentScreen() {
   const router = useRouter();
@@ -47,7 +49,28 @@ export default function EditDocumentScreen() {
   }
 
   const handleFormSubmit = async (updatedDoc: ZentraDocument) => {
-    // 1. Update the document details in the global state
+    // 1. Save file permanently if there is a new attachment
+    if (updatedDoc.localUri && updatedDoc.localUri !== doc.localUri) {
+      const permanentUri = await saveFilePermanently(updatedDoc.localUri, updatedDoc.name);
+      if (permanentUri) {
+        updatedDoc.localUri = permanentUri;
+      }
+    }
+
+    // 2. Clean up old file if it was replaced or removed
+    if (doc.localUri && doc.localUri !== updatedDoc.localUri) {
+      const permanentDirectory = FileSystem.documentDirectory;
+      if (permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
+        try {
+          await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
+          console.log("[EditDocument] Deleted old permanent file:", doc.localUri);
+        } catch (e) {
+          console.warn("Failed to delete old local file:", e);
+        }
+      }
+    }
+
+    // 3. Update the document details in the global state
     updateDocument(doc.id, updatedDoc);
     AccessibilityInfo.announceForAccessibility("Document saved");
 

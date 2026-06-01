@@ -1,4 +1,5 @@
 Read AGENTS.md first and follow it strictly.
+Read DESIGN.md for theme tokens, colors, and component conventions before implementing.
 
 ## Task — Proper Date Picker (Replace Placeholder in AddDocumentForm)
 
@@ -6,7 +7,7 @@ Replace the plain text date input in `AddDocumentForm` with a real native date p
 
 **Steps:**
 
-1. Install `@react-native-community/datetimepicker` (the standard Expo-compatible date picker).
+1. Run `bun add @react-native-community/datetimepicker` (the standard Expo-compatible date picker).
 
 2. Create `components/DatePickerField.tsx`:
    - Props: `label: string`, `value: string` (ISO date string or empty), `onChange: (date: string) => void`, `error?: string`

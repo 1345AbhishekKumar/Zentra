@@ -59,13 +59,13 @@ export default function ExpiryBadge({
     labelText = `Expires ${label}`;
   }
 
-  const resolvedColor = textClass.includes("text-danger")
-    ? colors.danger
-    : textClass.includes("text-warning")
-      ? colors.warning
-      : textClass.includes("text-success")
-        ? colors.success
-        : colors.secondary;
+  const colorMap: Record<typeof urgency, string> = {
+    expired: colors.danger,
+    critical: colors.danger,
+    warning: colors.warning,
+    safe: colors.success,
+  };
+  const resolvedColor = colorMap[urgency] || colors.secondary;
 
   return (
     <View

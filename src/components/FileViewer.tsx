@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -70,34 +71,29 @@ async function openExternally(uri: string): Promise<void> {
   } else {
     // iOS — use sharing to open in default app
     let isNativeSharingAvailable = false;
-    if (Platform.OS === "web") {
-      isNativeSharingAvailable = true;
-    } else {
-      try {
-        const { requireOptionalNativeModule } = require("expo-modules-core");
-        isNativeSharingAvailable = !!requireOptionalNativeModule("ExpoSharing");
-      } catch {
-        isNativeSharingAvailable = false;
-      }
+    let Sharing: typeof SharingType | null = null;
+    try {
+      Sharing = require("expo-sharing");
+      isNativeSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
+    } catch {
+      isNativeSharingAvailable = false;
     }
 
-    if (!isNativeSharingAvailable) {
-      Alert.alert(
-        "Sharing Unavailable",
-        "Unable to open this file because sharing is not available on this environment.",
-      );
-      return;
-    }
-
-    const Sharing = require("expo-sharing") as typeof SharingType;
-    const isAvailable = await Sharing.isAvailableAsync();
-    if (isAvailable) {
+    if (isNativeSharingAvailable && Sharing) {
       await Sharing.shareAsync(uri);
     } else {
-      Alert.alert(
-        "Sharing Unavailable",
-        "Unable to open this file on your device.",
-      );
+      // Fallback to React Native's built-in Share module on iOS
+      try {
+        await Share.share({
+          url: uri,
+        });
+      } catch (error) {
+        console.error("RN Share fallback failed:", error);
+        Alert.alert(
+          "Viewer Unavailable",
+          "Unable to open or share this file on this device/environment."
+        );
+      }
     }
   }
 }
@@ -280,7 +276,7 @@ export default function FileViewer({
     }
   };
 
-  // Trigger external open when the modal becomes visible
+  // Render a confirmation modal to prompt the user to open the file externally
   if (visible) {
     // We use a minimal "opening" modal while launching the external viewer
     return (

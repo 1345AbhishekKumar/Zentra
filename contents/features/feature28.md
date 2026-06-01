@@ -73,8 +73,8 @@ Add `hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}` to any small interactiv
 
 ### Rule 6 — Color contrast
 
-Verify these pairs meet WCAG AA (4.5:1 for normal text, 3:1 for large text):  according to y design system.
-here is the examples , do not use the color that do not have in my design system.
+Verify these pairs meet WCAG AA (4.5:1 for normal text, 3:1 for large text) according to your design system.
+Here are the examples; do not use colors that are not included in my design system.
 - `Colors.secondaryText` (`#737373`) on `Colors.background` (`#F7F6F3`) — verify with a contrast ratio check
 - `Colors.accent` (`#4F46E5`) on white — this passes at 6.6:1 ✅
 - White text on `Colors.accent` — passes ✅
