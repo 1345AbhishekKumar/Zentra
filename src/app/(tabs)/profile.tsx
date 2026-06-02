@@ -29,8 +29,8 @@ import { colors } from "@/theme/tokens";
 import { expiryUrgency } from "@/lib/date";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requireOptionalNativeModule } from "expo-modules-core";
+import { useAppLock } from "@/hooks/useAppLock";
 
 const webInputStyle: React.CSSProperties = {
   position: "absolute",
@@ -95,7 +95,7 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
+  const { isLockEnabled } = useAppLock();
   const [isUploading, setIsUploading] = useState(false);
   const [isNameModalVisible, setIsNameModalVisible] = useState(false);
   const [isSignOutModalVisible, setIsSignOutModalVisible] = useState(false);
@@ -111,18 +111,6 @@ export default function ProfileScreen() {
   const [selectedHour, setSelectedHour] = useState(9);
   const [selectedMinute, setSelectedMinute] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState<"AM" | "PM">("AM");
-
-  useEffect(() => {
-    const checkAppLock = async () => {
-      try {
-        const val = await AsyncStorage.getItem("zentra-app-lock-enabled");
-        setIsAppLockEnabled(val === "true");
-      } catch (err) {
-        console.error("Error reading app lock status:", err);
-      }
-    };
-    checkAppLock();
-  }, []);
 
   const firstName = user?.firstName || "";
   const lastName = user?.lastName || "";
@@ -879,7 +867,7 @@ export default function ProfileScreen() {
                 <View className="ml-3 flex-1">
                   <Text className="text-body-lg font-medium text-primary">App Lock</Text>
                   <Text className="text-caption text-secondary mt-0.5 font-medium">
-                    {isAppLockEnabled ? "On" : "Off"}
+                    {isLockEnabled ? "On" : "Off"}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color="#C7C7CC" />
@@ -900,6 +888,32 @@ export default function ProfileScreen() {
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
             >
+              <Pressable
+                onPress={() => router.push("/export-data")}
+                accessibilityRole="button"
+                accessibilityLabel="Export Data"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+              >
+                <Feather name="download" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
+                  Export Data
+                </Text>
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push("/import-data")}
+                accessibilityRole="button"
+                accessibilityLabel="Import Data"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+              >
+                <Feather name="upload" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
+                  Import Data
+                </Text>
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+              </Pressable>
+
               <Pressable
                 onPress={handleDeleteAllData}
                 accessibilityRole="button"
@@ -935,6 +949,19 @@ export default function ProfileScreen() {
                 </Text>
                 <Text className="text-body-md text-secondary font-medium">{appVersion}</Text>
               </View>
+
+              <Pressable
+                onPress={() => router.push("/help")}
+                accessibilityRole="button"
+                accessibilityLabel="Help and FAQ"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+              >
+                <Feather name="help-circle" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
+                  Help & FAQ
+                </Text>
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+              </Pressable>
 
               <Pressable
                 onPress={() => router.push("/privacy-policy")}

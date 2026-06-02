@@ -138,9 +138,9 @@ export default function SearchScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 3. Save search query to history on search submit
-  const handleSearchSubmit = async () => {
-    const trimmed = query.trim();
+  // 3. Save search query to history (max 5, deduplicated)
+  const saveSearchQuery = (searchQuery: string) => {
+    const trimmed = searchQuery.trim();
     if (!trimmed) return;
 
     setRecentSearches((prev) => {
@@ -155,6 +155,22 @@ export default function SearchScreen() {
       return updated;
     });
   };
+
+  const handleSearchSubmit = () => {
+    saveSearchQuery(query);
+  };
+
+  // 4. Debounce: Save search query to history when user stops typing for 300ms
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    const timer = setTimeout(() => {
+      saveSearchQuery(trimmed);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // 4. Search logic: filters documents by name, category, notes, and expiryDate formatted via formatDate
   const searchResults = useMemo(() => {
@@ -314,12 +330,13 @@ export default function SearchScreen() {
                 return (
                   <Pressable
                     key={doc.id}
-                    onPress={() =>
+                    onPress={() => {
+                      saveSearchQuery(query);
                       router.push({
                         pathname: "/document/[id]",
                         params: { id: doc.id },
-                      } as never)
-                    }
+                      } as never);
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel={`Open ${doc.name}`}
                     className="flex-row items-center px-4 py-3 bg-surface active:bg-background border-b border-border/40"

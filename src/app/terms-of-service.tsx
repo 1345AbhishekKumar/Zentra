@@ -189,8 +189,7 @@ export default function TermsOfServiceScreen() {
                 6. Disclaimer of warranties
               </Text>
               <Text className="text-secondary text-[14px] leading-[22px] font-sans">
-                Zentra is provided "as is" without warranties of any kind. We do
-                not guarantee the app will be error-free or uninterrupted.
+                {"Zentra is provided \"as is\" without warranties of any kind. We do not guarantee the app will be error-free or uninterrupted."}
               </Text>
             </View>
 

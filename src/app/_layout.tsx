@@ -4,13 +4,16 @@ import { tokenCache } from "@clerk/expo/token-cache";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { useFonts } from "expo-font";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, View, AppState, Modal, Text, Pressable, StyleSheet } from "react-native";
 import "../global.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { Image } from "expo-image";
+import { images } from "@/constants/images";
+import { useAppLock } from "@/hooks/useAppLock";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
 if (!publishableKey) {
@@ -25,9 +28,38 @@ SplashScreen.preventAutoHideAsync();
  */
 function InitialLayout() {
   const router = useRouter();
-  const { isLoaded } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const _hasHydrated = useDocumentStore((state) => state._hasHydrated);
   const coldStartHandled = useRef(false);
+  const segments = useSegments();
+
+  const [isLocked, setIsLocked] = useState(false);
+  const { isLockEnabled, authenticate } = useAppLock();
+
+  const appState = useRef(AppState.currentState);
+  const isInitialLaunch = useRef(true);
+
+  useEffect(() => {
+    // Set initial launch to false after initial mount
+    const timer = setTimeout(() => {
+      isInitialLaunch.current = false;
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Request notification permissions on mount (registers Android channel + prompts user)
+  useEffect(() => {
+    const requestNotificationPermissions = async () => {
+      try {
+        const { requestPermissions } = await import("@/lib/notifications");
+        await requestPermissions();
+      } catch (err) {
+        console.error("Failed to request notification permissions on mount:", err);
+      }
+    };
+    requestNotificationPermissions();
+  }, []);
+
 
   // Listener A — foreground notification received (no navigation)
   // Listener B — user taps a notification (background or active state)
@@ -80,10 +112,83 @@ function InitialLayout() {
     })();
   }, [_hasHydrated, isLoaded, router]);
 
+  // AppState listening for foregrounding transitions
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", async (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        if (!isInitialLaunch.current) {
+          const isAuthRoute = segments[0] === "(auth)";
+          if (isLockEnabled && isSignedIn && !isAuthRoute) {
+            setIsLocked(true);
+            const success = await authenticate();
+            if (success) {
+              setIsLocked(false);
+            }
+          }
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isLockEnabled, isSignedIn, segments, authenticate]);
+
+  const handleManualUnlock = async () => {
+    const success = await authenticate();
+    if (success) {
+      setIsLocked(false);
+    }
+  };
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="add-document" options={{ presentation: "modal" }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="add-document" options={{ presentation: "modal" }} />
+      </Stack>
+
+      <Modal
+        visible={isLocked && isSignedIn && segments[0] !== "(auth)" && isLockEnabled}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => {
+          // Keep it locked! Do not allow hardware back button to dismiss
+        }}
+      >
+        <View className="flex-1 bg-surface items-center justify-center px-6">
+          <View className="items-center mb-12">
+            <Image
+              source={images.logo}
+              style={{ width: 120, height: 120 }}
+              contentFit="contain"
+            />
+            <Text
+              className="text-[#12121A] text-[44px] italic mt-4"
+              style={{ fontFamily: "PlayfairDisplayItalic", lineHeight: 48 }}
+            >
+              Zentra
+            </Text>
+            <Text className="text-secondary text-body-md mt-2">
+              Privacy-first Document Vault
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={handleManualUnlock}
+            style={styles.buttonShadow}
+            className="w-full max-w-xs h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-90"
+          >
+            <Text className="text-white text-body-lg font-semibold font-display">
+              Unlock Zentra
+            </Text>
+          </Pressable>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -146,3 +251,13 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  buttonShadow: {
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+});

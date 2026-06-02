@@ -513,3 +513,141 @@ The codebase was using a JavaScript file (`index.js`) as its primary entry point
 
 ### Verification
 - Verified that all TypeScript types resolve correctly and that the project compiles with zero compilation errors by running `bunx tsc --noEmit`.
+
+---
+
+## 24. App Lock (Biometric + PIN) Implementation
+
+### Problem & Goal
+- Add an optional app lock using device biometrics (Face ID / fingerprint) or PIN. When enabled, the user must authenticate every time the app comes to the foreground.
+- Bypassed the lock overlay during initial app launch, for unsigned-in users, or on authentication routes (`(auth)/*`).
+
+### Solution
+- **Local Authentication Setup & Sandboxing**:
+  - Installed `expo-local-authentication` dependency to leverage native biometric APIs.
+  - Resolved `Cannot find native module 'ExpoLocalAuthentication'` startup crash on platforms without the binary (Web, Expo Go, unlinked simulators) by refactoring the module loading mechanism to use dynamic asynchronous `import("expo-local-authentication")` inside `getLocalAuthModule` instead of synchronous `require()`. Since Metro eagerly evaluates synchronous `require()` statements inside functions at module initialization (even if the function is never executed), dynamic asynchronous imports are necessary to prevent eager loading and guarantee that the package is only loaded at runtime when local authentication is actually supported.
+  - Implemented graceful sandboxed fallback logic: if the native local auth module is unavailable, authentication is bypassed, a warning is logged, and custom configurations safely run in mock/unlocked mode.
+- **Custom App Lock Hook (`src/hooks/useAppLock.ts`)**:
+  - Implemented preference persistence in `AsyncStorage` under `"zentra_app_lock_enabled"`.
+  - Added a global listener registry to propagate status updates reactively across components.
+  - Exposed `authenticate` wrapping dynamic `expo-local-authentication` calls for biometric/PIN verification.
+- **App Lock Configuration Screen (`src/app/app-lock.tsx`)**:
+  - Built settings view containing a toggle Switch, available authentication method display ("Face ID", "Fingerprint", or "Device PIN"), and a test button.
+  - Configured toggle Switch to require successful authentication before enabling the app lock, preventing users from locking themselves out.
+- **Root Layout Overlay (`src/app/_layout.tsx`)**:
+  - Wired `AppState` change listener to intercept background-to-foreground transitions.
+  - Rendered a full-screen `Modal` block overlay with Zentra branding and an unlock button.
+  - Enabled auto-authentication on foregrounding, keeping the overlay visible if validation fails.
+- **Profile / Settings Screen (`src/app/(tabs)/profile.tsx`)**:
+  - Integrated `useAppLock` to show live lock status ("On" or "Off") dynamically in settings.
+  - Replaced the local storage check with the hook state.
+- **ESLint/TSX Formatting Cleanups**:
+  - Resolved unescaped entity errors (`react/no-unescaped-entities`) in `src/app/privacy-policy.tsx` and `src/app/terms-of-service.tsx` by wrapping strings containing quotes and apostrophes inside React Text components with curly braces as JS string literals.
+
+### Verification
+- Tested with `bunx tsc --noEmit` and verified a clean compile with 0 compilation errors.
+- Tested with `bun run lint` and verified clean lint checks with 0 errors.
+
+---
+
+## 25. Recent Searches Not Showing Bug
+
+### Problem
+- On the global search screen, the "Recent Searches" section was not showing any history, even after the user performed searches.
+
+### Root Cause
+- The recent searches history was only updated via `handleSearchSubmit`, which was bound exclusively to `onSubmitEditing` (pressing Enter or Search on the virtual/physical keyboard) on the `TextInput`.
+- In standard mobile usage, users type a search term, view the filtered results list, and tap directly on a document result. This navigates the user away to the document details page without ever triggering `onSubmitEditing`.
+- As a result, search queries were almost never saved to AsyncStorage, leaving the recent searches section permanently empty.
+- Furthermore, the 300ms text input debounce history-saving behavior originally defined in the search specification had been removed in a previous commit.
+
+### Solution
+- **Restored Debounce Saving**: Restored the `useEffect` that listens to search `query` changes and automatically runs `saveSearchQuery` after a 300ms debounce of inactivity, ensuring that active queries are logged automatically.
+- **Save on Result Selection**: Updated the `Pressable` card row representing search results. Tapping any search result now immediately invokes `saveSearchQuery(query)` before routing the user, ensuring that successful search terms are saved to history.
+- **Deduplication and Limits**: Maintained the deduplication and max history length (5 entries) constraints using AsyncStorage key `"zentra_recent_searches"`.
+
+### Verification
+- Tested with `bunx tsc --noEmit` and confirmed zero compiler errors.
+
+---
+
+## 26. Feature 32: Help & FAQ Screen
+
+### What Was Done
+- Implemented a searchable Help & FAQ screen so users can find answers to common questions without leaving the app.
+
+### Changes Made
+- **`src/app/help.tsx`**: Created a new screen file:
+  - Displays a centered, bold header title with a back navigation arrow.
+  - Features a local search bar that filters the static list of 10 FAQs in real-time using `useMemo`.
+  - Renders FAQ items in an accordion style card container: clicking on a question rotates the chevron and expands/collapses the corresponding answer.
+  - Uses the custom `<EmptyState>` component as a fallback when no questions match the search query.
+  - Displays a "Still need help?" section containing a "Contact Support" row pre-addressed to the support email via the device mail client.
+- **`src/app/(tabs)/profile.tsx`**: Integrated the "Help & FAQ" entry point under the About card, positioned above Privacy Policy and Terms of Service.
+
+### Verification
+- Checked that all type checks compile successfully with `bunx tsc --noEmit` (0 errors).
+- Ran `bun run lint` and resolved all warning checks.
+
+---
+
+## 27. Notification Channel and Scheduling Bug Fixes
+
+### Problem & Root Cause
+- **Missing Android Notification Channel Association**: In `src/lib/notifications.ts`, notifications were scheduled using `Notifications.scheduleNotificationAsync`, but the `channelId` parameter was missing from the `trigger` object. On Android 8.0+ (API 26+), notifications without a valid registered channel ID are ignored or not shown in the notification drawer/bar.
+- **Missing Channel Initialization**: The notification channel `"default"` was only created when `requestPermissions()` was called. If the user already had permissions or if the permission dialog wasn't shown yet, `Notifications.setNotificationChannelAsync` was never called, meaning the channel didn't exist on Android.
+- **No Automatic Permission Prompt on Launch**: The app didn't call `requestPermissions()` on app launch. If a user added a document with notifications enabled by default, the app tried to schedule a notification, but `hasPermission()` returned `false` (since the permission was never requested or granted yet). Thus, `scheduleDocumentNotifications` silently aborted scheduling.
+- **Simulator Scheduling Blocked**: The `!Device.isDevice` check inside `hasPermission()` and `requestPermissions()` prevented scheduling local notifications on Android Emulators and iOS Simulators, making local testing and verification impossible.
+
+### Solution
+- **Android Channel Registration**:
+  - Automatically created and verified the `"default"` notification channel inside `scheduleDocumentNotifications` on Android before scheduling to guarantee it exists.
+  - Added `channelId: "default"` to the trigger parameter in `Notifications.scheduleNotificationAsync` to associate the scheduled alert with the channel.
+- **Active Permission Prompting**:
+  - Modified `scheduleDocumentNotifications` to dynamically request permission if `hasPermission()` returns `false` (avoiding silent failures).
+  - Added a `useEffect` inside `InitialLayout` (`src/app/_layout.tsx`) that requests notification permissions on app mount, ensuring early channel registration on Android and prompting new users on first launch.
+- **Simulator Enablement**:
+  - Removed/bypassed the strict `!Device.isDevice` check from `hasPermission()` and `requestPermissions()`, enabling local notification scheduling and testing on simulators and emulators.
+
+### Verification
+- Tested with `bunx tsc --noEmit` and confirmed that the project compiles with zero TypeScript errors.
+
+---
+
+## 28. Android Exact Alarm Permission & Custom Notification Channel Fixes
+
+### Problem & Root Cause
+- **Blocked Exact Alarms on Android 12+ (API 31+)**: Both custom and default notifications schedule reminders using exact date-based triggers (`type: 'date'`). On Android 12+, scheduling exact alarms requires declaring `android.permission.SCHEDULE_EXACT_ALARM` in the manifest. Since this permission was not specified in the app config, the Android OS blocked the creation of these alarms, causing scheduled notifications to fail silently on user devices.
+- **Missing config-plugin registration**: The `expo-notifications` library was not configured inside the `"plugins"` array of `app.json`, preventing proper native manifest updates.
+- **Immutable Default Channel Conflict**: Android notification channel properties (such as MAX importance and sound) are immutable after creation. If the `"default"` channel was previously registered with low priority or muted settings, programmatically updating it would be ignored.
+
+### Solution
+- **Native Permissions & Plugins**:
+  - Declared `android.permission.SCHEDULE_EXACT_ALARM` under `android.permissions` in [app.json](file:///d:/MyProjects/Expo_Projects/Zentra/app.json) to allow the scheduling of precise local date-based alarms.
+  - Added `"expo-notifications"` to the `"plugins"` list in [app.json](file:///d:/MyProjects/Expo_Projects/Zentra/app.json) to hook up native setup scripts.
+- **Unique Custom Notification Channel**:
+  - Migrated the notification channel ID from `"default"` to `"zentra-alerts"` (named `"Zentra Expiry Alerts"`) inside [notifications.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/notifications.ts) to bypass any pre-existing muted system fallback channel state.
+  - Updated all scheduling references to route trigger configs through `"zentra-alerts"`.
+- **Type-Safe Foreground Handler**:
+  - Restored type compliance in the module-level notification behavior handler to strictly match the `NotificationBehavior` interface, while keeping max priority overrides for Android.
+
+### Verification
+- Checked compiling with `bunx tsc --noEmit` which completed successfully with 0 errors.
+- Ran `bun run lint` and confirmed that code changes did not introduce any lint warnings.
+
+---
+
+## 27. Feature 33: Export Data
+
+### Goal
+- Allow users to export all their document metadata as a JSON file they can save or share locally, acting as a personal backup.
+
+### Changes Made
+- **`src/app/export-data.tsx`**: Created a new screen with a premium info card, a checklist of included metadata, document/collection counters, and an "Export as JSON" action button.
+  - Formats JSON containing document details (excluding `localUri` paths to respect Zentra's 100% privacy-first rule) and notification settings.
+  - Caches file locally using `expo-file-system/legacy` and shares it using `expo-sharing` (native) or falls back to Web downloads/RN Share API.
+- **`src/app/(tabs)/profile.tsx`**: Added an "Export Data" row in the "Data" settings card section above the destructive "Delete All Documents" row, styled with a Feather `download` icon.
+
+### Verification
+- Verified 100% type-safety using `tsc --noEmit`.
+- Validated styling and syntax with `bun run lint` (0 lint errors in modified/created files).

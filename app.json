@@ -13,7 +13,10 @@
         "backgroundColor": "#E6F4FE"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.abhiffhdsdsorganization.zentra"
+      "package": "com.abhiffhdsdsorganization.zentra",
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ]
     },
     "web": {
       "output": "static"
@@ -39,7 +42,8 @@
           "photosPermission": "The app accesses your photos to let you attach them to documents.",
           "cameraPermission": "The app accesses your camera to let you scan documents."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
