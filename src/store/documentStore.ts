@@ -53,6 +53,8 @@ export const useDocumentStore = create<DocumentStore>()(
       notificationSettings: {
         globalEnabled: true,
         advanceNoticeDays: [7, 30, 90],
+        customNoticeDays: [],
+        reminderTime: "09:00",
       },
       user: null,
       upcomingExpirations: [],
@@ -129,6 +131,7 @@ export const useDocumentStore = create<DocumentStore>()(
                 await scheduleDocumentNotifications(
                   updatedDoc,
                   notificationSettings.advanceNoticeDays,
+                  notificationSettings.reminderTime || "09:00",
                 );
               }
             })();
@@ -337,6 +340,20 @@ export const useDocumentStore = create<DocumentStore>()(
               // Ensure readAlerts is initialized
               if (!state.readAlerts) {
                 useDocumentStore.setState({ readAlerts: [] });
+              }
+              // Ensure notificationSettings has customNoticeDays and reminderTime initialized
+              if (state.notificationSettings) {
+                const ns = state.notificationSettings;
+                if (!ns.customNoticeDays || !ns.reminderTime) {
+                  useDocumentStore.setState({
+                    notificationSettings: {
+                      globalEnabled: ns.globalEnabled ?? true,
+                      advanceNoticeDays: ns.advanceNoticeDays ?? [7, 30, 90],
+                      customNoticeDays: ns.customNoticeDays ?? [],
+                      reminderTime: ns.reminderTime ?? "09:00",
+                    },
+                  });
+                }
               }
             }
             state.setHasHydrated(true);

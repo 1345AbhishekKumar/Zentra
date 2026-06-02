@@ -73,6 +73,7 @@ export async function hasPermission(): Promise<boolean> {
 export async function scheduleDocumentNotifications(
   doc: ZentraDocument,
   advanceNoticeDays: number[],
+  reminderTime: string = "09:00",
 ): Promise<void> {
   try {
     // First cancel any existing notifications for this document
@@ -93,11 +94,14 @@ export async function scheduleDocumentNotifications(
     }
 
     const expiryDate = parseISO(doc.expiryDate);
+    const [hoursStr, minutesStr] = reminderTime.split(":");
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
 
     for (const daysBeforeExpiry of advanceNoticeDays) {
       const triggerDate = subDays(expiryDate, daysBeforeExpiry);
-      // Fire at 9:00 AM local time
-      triggerDate.setHours(9, 0, 0, 0);
+      // Fire at custom time
+      triggerDate.setHours(hours, minutes, 0, 0);
 
       // Skip if trigger date is in the past
       if (triggerDate.getTime() <= Date.now()) {

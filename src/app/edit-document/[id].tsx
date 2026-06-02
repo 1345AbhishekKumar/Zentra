@@ -80,6 +80,7 @@ export default function EditDocumentScreen() {
         await scheduleDocumentNotifications(
           updatedDoc,
           notificationSettings.advanceNoticeDays,
+          notificationSettings.reminderTime || "09:00",
         );
       } catch (err) {
         console.error("Failed to reschedule document notifications:", err);
