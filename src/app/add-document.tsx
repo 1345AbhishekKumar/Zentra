@@ -47,6 +47,7 @@ export default function AddDocumentScreen() {
         await scheduleDocumentNotifications(
           newDoc,
           notificationSettings.advanceNoticeDays,
+          notificationSettings.reminderTime || "09:00",
         );
       } catch (err) {
         console.error("Failed to schedule document notifications:", err);

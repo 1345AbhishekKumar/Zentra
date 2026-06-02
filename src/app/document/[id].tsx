@@ -671,6 +671,7 @@ export default function DocumentDetailsScreen() {
                       await scheduleDocumentNotifications(
                         { ...doc, notificationsEnabled: true },
                         notificationSettings.advanceNoticeDays,
+                        notificationSettings.reminderTime || "09:00",
                       );
                     }
                   } else {

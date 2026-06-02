@@ -1,6 +1,7 @@
 import { VerificationModal } from "@/components/VerificationModal";
 import { images } from "@/constants/images";
 import { useSignUp, useSSO } from "@clerk/expo";
+import { colors } from "@/theme/tokens";
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -426,6 +427,35 @@ export default function SignUp() {
                       </Text>
                     )}
                   </Pressable>
+                </View>
+
+                {/* Terms of Service & Privacy Policy links */}
+                <View className="items-center w-full mt-2 px-2">
+                  <Text
+                    className="text-[#6C6B7E] text-[12px] text-center font-sans"
+                    style={{ lineHeight: 18 }}
+                  >
+                    By creating an account, you agree to our{" "}
+                    <Text
+                      style={{ color: colors.accent }}
+                      className="font-semibold underline text-[12px]"
+                      onPress={() => router.push("/terms-of-service")}
+                      accessibilityRole="link"
+                      accessibilityLabel="Terms of Service"
+                    >
+                      Terms of Service
+                    </Text>{" "}
+                    and{" "}
+                    <Text
+                      style={{ color: colors.accent }}
+                      className="font-semibold underline text-[12px]"
+                      onPress={() => router.push("/privacy-policy")}
+                      accessibilityRole="link"
+                      accessibilityLabel="Privacy Policy"
+                    >
+                      Privacy Policy
+                    </Text>
+                  </Text>
                 </View>
               </View>
 

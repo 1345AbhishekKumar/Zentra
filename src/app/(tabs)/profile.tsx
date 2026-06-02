@@ -32,6 +32,18 @@ import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requireOptionalNativeModule } from "expo-modules-core";
 
+const webInputStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  opacity: 0,
+  width: "100%",
+  height: "100%",
+  cursor: "pointer",
+};
+
 interface GlobalWithNativeFlags {
   __isImagePickerNativeAvailable?: boolean;
 }
@@ -93,6 +105,12 @@ export default function ProfileScreen() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [isFirstNameFocused, setIsFirstNameFocused] = useState(false);
   const [isLastNameFocused, setIsLastNameFocused] = useState(false);
+  const [isCustomDaysModalVisible, setIsCustomDaysModalVisible] = useState(false);
+  const [customDaysInput, setCustomDaysInput] = useState("");
+  const [isTimeModalVisible, setIsTimeModalVisible] = useState(false);
+  const [selectedHour, setSelectedHour] = useState(9);
+  const [selectedMinute, setSelectedMinute] = useState(0);
+  const [selectedPeriod, setSelectedPeriod] = useState<"AM" | "PM">("AM");
 
   useEffect(() => {
     const checkAppLock = async () => {
@@ -377,13 +395,162 @@ export default function ProfileScreen() {
     if (notificationSettings.globalEnabled) {
       const promises = documents
         .filter((doc) => doc.notificationsEnabled)
-        .map((doc) => scheduleDocumentNotifications(doc, updatedDays));
+        .map((doc) =>
+          scheduleDocumentNotifications(
+            doc,
+            updatedDays,
+            notificationSettings.reminderTime || "09:00",
+          )
+        );
       await Promise.all(promises);
     }
   };
 
+  const handleRemoveCustomDay = async (day: number) => {
+    const currentCustom = notificationSettings.customNoticeDays || [];
+    const updatedCustom = currentCustom.filter((d) => d !== day);
+
+    const currentAdvance = notificationSettings.advanceNoticeDays || [];
+    const updatedAdvance = currentAdvance.filter((d) => d !== day);
+
+    updateNotificationSettings({
+      customNoticeDays: updatedCustom,
+      advanceNoticeDays: updatedAdvance,
+    });
+
+    if (notificationSettings.globalEnabled) {
+      const promises = documents
+        .filter((doc) => doc.notificationsEnabled)
+        .map((doc) =>
+          scheduleDocumentNotifications(
+            doc,
+            updatedAdvance,
+            notificationSettings.reminderTime || "09:00",
+          )
+        );
+      await Promise.all(promises);
+    }
+  };
+
+  const handleAddCustomDay = async () => {
+    const daysVal = parseInt(customDaysInput.trim(), 10);
+    if (isNaN(daysVal) || daysVal <= 0 || daysVal > 365) {
+      Alert.alert("Validation Error", "Please enter a valid number of days between 1 and 365.");
+      return;
+    }
+
+    const currentCustom = notificationSettings.customNoticeDays || [];
+    const currentAdvance = notificationSettings.advanceNoticeDays || [];
+
+    // Check if it already exists in defaults
+    if ([7, 14, 30, 60, 90].includes(daysVal)) {
+      if (!currentAdvance.includes(daysVal)) {
+        const updatedAdvance = [...currentAdvance, daysVal].sort((a, b) => a - b);
+        updateNotificationSettings({ advanceNoticeDays: updatedAdvance });
+        if (notificationSettings.globalEnabled) {
+          const promises = documents
+            .filter((doc) => doc.notificationsEnabled)
+            .map((doc) =>
+              scheduleDocumentNotifications(
+                doc,
+                updatedAdvance,
+                notificationSettings.reminderTime || "09:00"
+              )
+            );
+          await Promise.all(promises);
+        }
+      }
+      setIsCustomDaysModalVisible(false);
+      setCustomDaysInput("");
+      return;
+    }
+
+    const updatedCustom = currentCustom.includes(daysVal)
+      ? currentCustom
+      : [...currentCustom, daysVal].sort((a, b) => a - b);
+
+    const updatedAdvance = currentAdvance.includes(daysVal)
+      ? currentAdvance
+      : [...currentAdvance, daysVal].sort((a, b) => a - b);
+
+    updateNotificationSettings({
+      customNoticeDays: updatedCustom,
+      advanceNoticeDays: updatedAdvance,
+    });
+
+    if (notificationSettings.globalEnabled) {
+      const promises = documents
+        .filter((doc) => doc.notificationsEnabled)
+        .map((doc) =>
+          scheduleDocumentNotifications(
+            doc,
+            updatedAdvance,
+            notificationSettings.reminderTime || "09:00"
+          )
+        );
+      await Promise.all(promises);
+    }
+
+    setIsCustomDaysModalVisible(false);
+    setCustomDaysInput("");
+  };
+
+  const openTimePicker = () => {
+    if (Platform.OS === "web") {
+      return;
+    }
+    const currentSettings = notificationSettings.reminderTime || "09:00";
+    const [h24, m24] = currentSettings.split(":").map(Number);
+    const period = h24 >= 12 ? "PM" : "AM";
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+
+    setSelectedHour(h12);
+    setSelectedMinute(m24);
+    setSelectedPeriod(period);
+    setIsTimeModalVisible(true);
+  };
+
+  const handleSaveTime = async (time24: string) => {
+    updateNotificationSettings({ reminderTime: time24 });
+
+    if (notificationSettings.globalEnabled) {
+      const promises = documents
+        .filter((doc) => doc.notificationsEnabled)
+        .map((doc) =>
+          scheduleDocumentNotifications(
+            doc,
+            notificationSettings.advanceNoticeDays,
+            time24,
+          )
+        );
+      await Promise.all(promises);
+    }
+    setIsTimeModalVisible(false);
+  };
+
+  const handleConfirmTimePicker = () => {
+    let h24 = selectedHour;
+    if (selectedPeriod === "PM" && h24 !== 12) {
+      h24 += 12;
+    } else if (selectedPeriod === "AM" && h24 === 12) {
+      h24 = 0;
+    }
+    const time24 = `${h24.toString().padStart(2, "0")}:${selectedMinute.toString().padStart(2, "0")}`;
+    handleSaveTime(time24);
+  };
+
+  const formatReminderTime = (time24: string): string => {
+    if (!time24) return "9:00 AM";
+    const [h24Str, m24Str] = time24.split(":");
+    const h24 = parseInt(h24Str, 10);
+    const period = h24 >= 12 ? "PM" : "AM";
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    return `${h12}:${m24Str} ${period}`;
+  };
+
   const appVersion = Constants.expoConfig?.version || "1.0.0";
-  const noticeChips = [7, 14, 30, 60, 90];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -557,6 +724,7 @@ export default function ProfileScreen() {
                         scheduleDocumentNotifications(
                           doc,
                           notificationSettings.advanceNoticeDays,
+                          notificationSettings.reminderTime || "09:00",
                         ),
                       );
                     await Promise.all(promises);
@@ -578,46 +746,113 @@ export default function ProfileScreen() {
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 8 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 16 }}
                 >
-                  {noticeChips.map((day) => {
-                    const isSelected = notificationSettings.advanceNoticeDays.includes(day);
-                    return (
-                      <Pressable
-                        key={day}
-                        onPress={() => handleToggleChip(day)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Toggle ${day} days reminder`}
-                        accessibilityState={{ selected: isSelected }}
-                        className={`px-4 rounded-full border active:opacity-85 min-h-11 justify-center ${
-                          isSelected
-                            ? "bg-accent border-accent"
-                            : "bg-surface border-border"
-                        }`}
-                        style={({ pressed }) => [
-                          pressed && { transform: [{ scale: 0.96 }] }
-                        ]}
-                      >
-                        <Text
-                          className={`text-body-md font-semibold ${
-                            isSelected ? "text-white" : "text-primary"
+                  {(() => {
+                    const defaultChips = [7, 14, 30, 60, 90];
+                    const customChips = notificationSettings.customNoticeDays || [];
+                    const combinedChips = Array.from(
+                      new Set([...defaultChips, ...customChips])
+                    ).sort((a, b) => a - b);
+
+                    return combinedChips.map((day) => {
+                      const isSelected = notificationSettings.advanceNoticeDays.includes(day);
+                      const isCustom = !defaultChips.includes(day);
+
+                      return (
+                        <View
+                          key={day}
+                          className={`flex-row items-center rounded-full border min-h-11 ${
+                            isSelected
+                              ? "bg-accent border-accent"
+                              : "bg-surface border-border"
                           }`}
                         >
-                          {day}d
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                          <Pressable
+                            onPress={() => handleToggleChip(day)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Toggle ${day} days reminder`}
+                            accessibilityState={{ selected: isSelected }}
+                            className={`justify-center rounded-full ${
+                              isCustom ? "pl-4 pr-2 py-2.5" : "px-4 py-2.5"
+                            }`}
+                            style={({ pressed }) => [
+                              pressed && { opacity: 0.8 }
+                            ]}
+                          >
+                            <Text
+                              className={`text-body-md font-semibold ${
+                                isSelected ? "text-white" : "text-primary"
+                              }`}
+                            >
+                              {day}d
+                            </Text>
+                          </Pressable>
+
+                          {isCustom && (
+                            <Pressable
+                              onPress={() => handleRemoveCustomDay(day)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Remove custom ${day} days reminder`}
+                              className="pr-3 pl-1 py-2.5 justify-center rounded-r-full"
+                              hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
+                            >
+                              <Feather
+                                name="x"
+                                size={12}
+                                color={isSelected ? "#FFFFFF" : colors.secondary}
+                              />
+                            </Pressable>
+                          )}
+                        </View>
+                      );
+                    });
+                  })()}
+
+                  {/* Add Custom Chip */}
+                  <Pressable
+                    onPress={() => setIsCustomDaysModalVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add custom reminder days"
+                    className="px-4 rounded-full border border-dashed border-accent bg-soft-accent min-h-11 justify-center items-center flex-row gap-1"
+                    style={({ pressed }) => [
+                      pressed && { opacity: 0.8 }
+                    ]}
+                  >
+                    <Feather name="plus" size={14} color={colors.accent} />
+                    <Text className="text-body-md font-semibold text-accent">
+                      Custom
+                    </Text>
+                  </Pressable>
                 </ScrollView>
               </View>
 
-              {/* Sent at 9:00 AM display-only row */}
-              <View className="flex-row items-center px-4 py-4 w-full">
-                <Feather name="info" size={20} color={colors.secondary} />
-                <Text className="text-body-md text-secondary ml-3 flex-1 font-medium">
-                  Reminders sent at 9:00 AM
+              {/* Reminder time row */}
+              <Pressable
+                onPress={openTimePicker}
+                accessibilityRole="button"
+                accessibilityLabel={`Reminder time: ${formatReminderTime(notificationSettings.reminderTime || "09:00")}`}
+                className="flex-row items-center px-4 py-4 w-full active:bg-background/50 relative"
+              >
+                <Feather name="clock" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 flex-1 font-medium text-primary">
+                  Reminder time
                 </Text>
-              </View>
+                <Text className="text-body-md text-accent font-semibold mr-1">
+                  {formatReminderTime(notificationSettings.reminderTime || "09:00")}
+                </Text>
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+
+                {/* Web Native time input overlay */}
+                {Platform.OS === "web" && (
+                  <input
+                    type="time"
+                    value={notificationSettings.reminderTime || "09:00"}
+                    onChange={(e) => handleSaveTime(e.target.value)}
+                    style={webInputStyle}
+                  />
+                )}
+              </Pressable>
             </View>
           </View>
         </View>
@@ -700,6 +935,32 @@ export default function ProfileScreen() {
                 </Text>
                 <Text className="text-body-md text-secondary font-medium">{appVersion}</Text>
               </View>
+
+              <Pressable
+                onPress={() => router.push("/privacy-policy")}
+                accessibilityRole="button"
+                accessibilityLabel="Privacy Policy"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+              >
+                <Feather name="file-text" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
+                  Privacy Policy
+                </Text>
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push("/terms-of-service")}
+                accessibilityRole="button"
+                accessibilityLabel="Terms of Service"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+              >
+                <Feather name="file-text" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
+                  Terms of Service
+                </Text>
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+              </Pressable>
 
               <View className="flex-row items-center px-4 py-4">
                 <Feather name="shield" size={20} color={colors.secondary} />
@@ -822,6 +1083,208 @@ export default function ProfileScreen() {
         confirmLabel="Delete All"
         isDestructive
       />
+
+      {/* Custom Days Input Modal */}
+      <Modal
+        visible={isCustomDaysModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCustomDaysModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay} className="flex-1 items-center justify-center px-6">
+            <View className="bg-surface w-full p-6 rounded-2xl border border-border/40" style={styles.cardShadow}>
+              <Text className="text-h2 text-primary font-bold mb-2">Add Custom Reminder</Text>
+              <Text className="text-body-md text-secondary mb-4">
+                Enter the number of days before expiry to receive a reminder alert.
+              </Text>
+
+              <TextInput
+                value={customDaysInput}
+                onChangeText={setCustomDaysInput}
+                keyboardType="number-pad"
+                accessibilityLabel="Number of days before expiry"
+                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-body-lg text-primary mb-6"
+                placeholder="e.g. 15"
+                placeholderTextColor={colors.secondary}
+                autoFocus
+              />
+
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => {
+                    setIsCustomDaysModalVisible(false);
+                    setCustomDaysInput("");
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel adding custom reminder"
+                  className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+                >
+                  <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleAddCustomDay}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add custom reminder day"
+                  className="flex-1 bg-accent py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+                >
+                  <Text className="text-body-lg font-semibold text-white">Add</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Custom Time Picker Bottom Sheet Modal */}
+      {Platform.OS !== "web" && (
+        <Modal
+          visible={isTimeModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsTimeModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            {/* Backdrop click cancels */}
+            <Pressable className="flex-1" onPress={() => setIsTimeModalVisible(false)} />
+
+            {/* Bottom Sheet Card */}
+            <View
+              className="bg-surface rounded-t-2xl overflow-hidden self-center shadow-lg"
+              style={{ width: "100%", maxWidth: 512 }}
+            >
+              {/* Toolbar */}
+              <View className="flex-row items-center justify-between px-6 py-4 border-b border-border bg-background">
+                <Pressable
+                  onPress={() => setIsTimeModalVisible(false)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel time selection"
+                  className="active:opacity-60"
+                >
+                  <Text className="text-body-md text-secondary font-semibold font-display">
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Text className="text-body-lg text-primary font-bold font-display">
+                  Reminder Time
+                </Text>
+                <Pressable
+                  onPress={handleConfirmTimePicker}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm time selection"
+                  className="active:opacity-60"
+                >
+                  <Text className="text-body-md text-accent font-bold font-display">
+                    Done
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Time Picker Controls */}
+              <View className="flex-row justify-center items-center py-8 bg-surface gap-6">
+                {/* Hours Selector */}
+                <View className="items-center">
+                  <Pressable
+                    onPress={() => setSelectedHour((prev) => (prev === 12 ? 1 : prev + 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Increment hour"
+                    className="w-12 h-10 items-center justify-center rounded-lg active:bg-soft-accent"
+                  >
+                    <Feather name="chevron-up" size={24} color={colors.accent} />
+                  </Pressable>
+                  <Text className="text-display text-primary font-bold my-1 w-16 text-center font-display">
+                    {selectedHour.toString().padStart(2, "0")}
+                  </Text>
+                  <Pressable
+                    onPress={() => setSelectedHour((prev) => (prev === 1 ? 12 : prev - 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrement hour"
+                    className="w-12 h-10 items-center justify-center rounded-lg active:bg-soft-accent"
+                  >
+                    <Feather name="chevron-down" size={24} color={colors.accent} />
+                  </Pressable>
+                </View>
+
+                {/* Colon */}
+                <Text className="text-display text-primary font-bold mb-4 font-display">:</Text>
+
+                {/* Minutes Selector */}
+                <View className="items-center">
+                  <Pressable
+                    onPress={() => setSelectedMinute((prev) => (prev === 59 ? 0 : prev + 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Increment minute"
+                    className="w-12 h-10 items-center justify-center rounded-lg active:bg-soft-accent"
+                  >
+                    <Feather name="chevron-up" size={24} color={colors.accent} />
+                  </Pressable>
+                  <Text className="text-display text-primary font-bold my-1 w-16 text-center font-display">
+                    {selectedMinute.toString().padStart(2, "0")}
+                  </Text>
+                  <Pressable
+                    onPress={() => setSelectedMinute((prev) => (prev === 0 ? 59 : prev - 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrement minute"
+                    className="w-12 h-10 items-center justify-center rounded-lg active:bg-soft-accent"
+                  >
+                    <Feather name="chevron-down" size={24} color={colors.accent} />
+                  </Pressable>
+                </View>
+
+                {/* Period AM/PM */}
+                <View className="flex-col gap-2 ml-4">
+                  <Pressable
+                    onPress={() => setSelectedPeriod("AM")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select AM"
+                    accessibilityState={{ selected: selectedPeriod === "AM" }}
+                    className={`px-4 py-2 rounded-lg border items-center justify-center ${
+                      selectedPeriod === "AM"
+                        ? "bg-accent border-accent"
+                        : "bg-surface border-border"
+                    }`}
+                  >
+                    <Text
+                      className={`text-body-md font-bold ${
+                        selectedPeriod === "AM" ? "text-white" : "text-primary"
+                      }`}
+                    >
+                      AM
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedPeriod("PM")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select PM"
+                    accessibilityState={{ selected: selectedPeriod === "PM" }}
+                    className={`px-4 py-2 rounded-lg border items-center justify-center ${
+                      selectedPeriod === "PM"
+                        ? "bg-accent border-accent"
+                        : "bg-surface border-border"
+                    }`}
+                  >
+                    <Text
+                      className={`text-body-md font-bold ${
+                        selectedPeriod === "PM" ? "text-white" : "text-primary"
+                      }`}
+                    >
+                      PM
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Safe Area space spacer */}
+              <View style={{ height: Math.max(insets.bottom, 24), backgroundColor: colors.surface }} />
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
