@@ -11,6 +11,7 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -20,18 +21,18 @@ Notifications.setNotificationHandler({
  */
 export async function requestPermissions(): Promise<boolean> {
   try {
-    if (!Device.isDevice) {
-      console.log("[Notifications] Permissions skipped: not a physical device.");
-      return false;
-    }
-
     if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "default",
+      await Notifications.setNotificationChannelAsync("zentra-alerts", {
+        name: "Zentra Expiry Alerts",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: "#4F46E5",
       });
+    }
+
+    if (!Device.isDevice) {
+      console.log("[Notifications] Permissions skipped: not a physical device. Simulating granted status.");
+      return true;
     }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -55,7 +56,7 @@ export async function requestPermissions(): Promise<boolean> {
 export async function hasPermission(): Promise<boolean> {
   try {
     if (!Device.isDevice) {
-      return false;
+      return true;
     }
     const { status } = await Notifications.getPermissionsAsync();
     return status === "granted";
@@ -84,8 +85,21 @@ export async function scheduleDocumentNotifications(
       return;
     }
 
-    // Check permissions before scheduling
-    const hasPerm = await hasPermission();
+    // Ensure the notification channel is created on Android
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("zentra-alerts", {
+        name: "Zentra Expiry Alerts",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#4F46E5",
+      });
+    }
+
+    // Check permissions before scheduling, request dynamically if not yet granted
+    let hasPerm = await hasPermission();
+    if (!hasPerm) {
+      hasPerm = await requestPermissions();
+    }
     if (!hasPerm) {
       console.log(
         "[Notifications] Cannot schedule: notification permissions not granted.",
@@ -120,6 +134,7 @@ export async function scheduleDocumentNotifications(
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: triggerDate,
+          channelId: "zentra-alerts",
         },
       });
     }

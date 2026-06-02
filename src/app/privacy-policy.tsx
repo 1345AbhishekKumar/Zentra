@@ -92,7 +92,7 @@ export default function PrivacyPolicyScreen() {
             {/* Commitment Highlight Summary Block */}
             <View className="gap-2">
               <Text className="text-primary text-[14px] font-semibold leading-[20px] font-sans">
-                We're committed to protecting and respecting your privacy.
+                {"We're committed to protecting and respecting your privacy."}
               </Text>
               <Text className="text-primary text-[14px] font-semibold leading-[20px] font-sans">
                 We will:
@@ -140,10 +140,7 @@ export default function PrivacyPolicyScreen() {
                 2. What we store and where
               </Text>
               <Text className="text-secondary text-[14px] leading-[22px] font-sans">
-                All document names, expiry dates, categories, notes, and attached
-                files are stored exclusively in your device's local storage
-                (AsyncStorage). Nothing is synced to the cloud, shared with third
-                parties, or accessible to Zentra or anyone else.
+                {"All document names, expiry dates, categories, notes, and attached files are stored exclusively in your device's local storage (AsyncStorage). Nothing is synced to the cloud, shared with third parties, or accessible to Zentra or anyone else."}
               </Text>
             </View>
 
@@ -153,11 +150,7 @@ export default function PrivacyPolicyScreen() {
                 3. Authentication
               </Text>
               <Text className="text-secondary text-[14px] leading-[22px] font-sans">
-                We use Clerk for user authentication. Clerk stores your email
-                address and authentication credentials on their servers solely for
-                the purpose of verifying your identity when you sign in. No
-                document data is ever shared with Clerk. Please refer to Clerk's
-                privacy policy for details on how they handle authentication data.
+                {"We use Clerk for user authentication. Clerk stores your email address and authentication credentials on their servers solely for the purpose of verifying your identity when you sign in. No document data is ever shared with Clerk. Please refer to Clerk's privacy policy for details on how they handle authentication data."}
               </Text>
             </View>
 
@@ -167,9 +160,7 @@ export default function PrivacyPolicyScreen() {
                 4. Notifications
               </Text>
               <Text className="text-secondary text-[14px] leading-[22px] font-sans">
-                Expiry reminders are scheduled locally on your device using your
-                operating system's notification system. No notification data is
-                sent to any external server.
+                {"Expiry reminders are scheduled locally on your device using your operating system's notification system. No notification data is sent to any external server."}
               </Text>
             </View>
 
@@ -191,16 +182,14 @@ export default function PrivacyPolicyScreen() {
                 6. App Lock & Biometrics
               </Text>
               <Text className="text-secondary text-[14px] leading-[22px] font-sans">
-                If you enable App Lock, your biometric data (Face ID, fingerprint)
-                is processed entirely by your device's operating system. Zentra
-                never accesses or stores biometric data.
+                {"If you enable App Lock, your biometric data (Face ID, fingerprint) is processed entirely by your device's operating system. Zentra never accesses or stores biometric data."}
               </Text>
             </View>
 
             {/* Section 7 */}
             <View>
               <Text className="text-body-lg text-primary font-bold mb-2">
-                7. Children's privacy
+                {"7. Children's privacy"}
               </Text>
               <Text className="text-secondary text-[14px] leading-[22px] font-sans">
                 Zentra is not directed at children under the age of 13. We do not
