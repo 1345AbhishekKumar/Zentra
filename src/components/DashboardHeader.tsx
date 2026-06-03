@@ -15,6 +15,7 @@ export default function DashboardHeader() {
 
   const hasExpiredOrCritical = React.useMemo(() => {
     return documents.some((doc) => {
+      if (doc.isDeleted) return false;
       const urgency = expiryUrgency(doc.expiryDate);
       const isUnread = !readAlerts.includes(doc.id);
       return (urgency === "expired" || urgency === "critical") && isUnread;

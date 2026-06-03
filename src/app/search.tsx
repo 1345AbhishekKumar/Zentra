@@ -179,6 +179,7 @@ export default function SearchScreen() {
     const q = trimmed.toLowerCase();
 
     return documents.filter((doc) => {
+      if (doc.isDeleted) return false;
       const formattedExpiry = formatDate(doc.expiryDate).toLowerCase();
       return (
         doc.name.toLowerCase().includes(q) ||

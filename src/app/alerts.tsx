@@ -69,31 +69,33 @@ export default function AlertsScreen() {
     router.replace("/(tabs)");
   };
 
-  // Grouping documents based on expiry time limits
-  const expiredDocs = sortByExpiry(
-    documents.filter((doc) => daysUntilExpiry(doc.expiryDate) < 0)
-  );
+  // Grouping documents based on expiry time limits (excluding soft-deleted documents)
+  const activeDocs = useMemo(() => documents.filter((doc) => !doc.isDeleted), [documents]);
+
+  const expiredDocs = useMemo(() => sortByExpiry(
+    activeDocs.filter((doc) => daysUntilExpiry(doc.expiryDate) < 0)
+  ), [activeDocs]);
   
-  const thisWeekDocs = sortByExpiry(
-    documents.filter((doc) => {
+  const thisWeekDocs = useMemo(() => sortByExpiry(
+    activeDocs.filter((doc) => {
       const days = daysUntilExpiry(doc.expiryDate);
       return days >= 0 && days <= 7;
     })
-  );
+  ), [activeDocs]);
 
-  const thisMonthDocs = sortByExpiry(
-    documents.filter((doc) => {
+  const thisMonthDocs = useMemo(() => sortByExpiry(
+    activeDocs.filter((doc) => {
       const days = daysUntilExpiry(doc.expiryDate);
       return days >= 8 && days <= 30;
     })
-  );
+  ), [activeDocs]);
 
-  const next3MonthsDocs = sortByExpiry(
-    documents.filter((doc) => {
+  const next3MonthsDocs = useMemo(() => sortByExpiry(
+    activeDocs.filter((doc) => {
       const days = daysUntilExpiry(doc.expiryDate);
       return days >= 31 && days <= 90;
     })
-  );
+  ), [activeDocs]);
 
   const allListedDocs = [
     ...expiredDocs,

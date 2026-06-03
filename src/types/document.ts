@@ -15,4 +15,6 @@ export interface ZentraDocument {
   isFavorite: boolean;
   notes?: string;
   localUri?: string;                 // on-device file URI — never sent off-device
+  isDeleted?: boolean;               // true when in the recently deleted bin/trash
+  deletedAt?: string;                // ISO 8601 datetime string when soft-deleted
 }

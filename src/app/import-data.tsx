@@ -16,7 +16,6 @@ import { colors } from "@/theme/tokens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDocumentStore } from "@/store/documentStore";
 import * as FileSystem from "expo-file-system/legacy";
-import type * as DocumentPickerType from "expo-document-picker";
 import { requireOptionalNativeModule } from "expo-modules-core";
 
 const isDocumentPickerNativeAvailable =
@@ -50,7 +49,7 @@ interface BackupFormat {
 export default function ImportDataScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { documents, addDocument, folders } = useDocumentStore();
+  const { documents, addDocument } = useDocumentStore();
   const [isImporting, setIsImporting] = useState(false);
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [pastedJson, setPastedJson] = useState("");
@@ -78,7 +77,7 @@ export default function ImportDataScreen() {
       }
       // Successfully parsed and validated structure
       setLoadedBackup(parsed);
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "This file doesn" + "'" + "t appear to be a valid Zentra backup.");
     }
   };
@@ -221,6 +220,8 @@ export default function ImportDataScreen() {
         notificationsEnabled: false, // Core requirement: set false on import
         isFavorite: !!doc.isFavorite,
         notes: doc.notes || "",
+        isDeleted: !!doc.isDeleted,
+        deletedAt: doc.deletedAt || undefined,
       }));
 
       // Add to store
@@ -437,7 +438,7 @@ export default function ImportDataScreen() {
               disabled={isImporting}
               accessibilityRole="button"
               accessibilityLabel="Import Documents"
-              className="w-full bg-accent h-[52px] rounded-xl items-center justify-center active:opacity-90 flex-row gap-2"
+              className="w-full bg-accent h-13 rounded-xl items-center justify-center active:opacity-90 flex-row gap-2"
             >
               {isImporting ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />

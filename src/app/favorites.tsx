@@ -21,7 +21,7 @@ export default function FavoritesScreen() {
     router.replace("/(tabs)");
   };
 
-  const favoriteDocs = documents.filter((doc) => doc.isFavorite);
+  const favoriteDocs = documents.filter((doc) => doc.isFavorite && !doc.isDeleted);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

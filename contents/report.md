@@ -651,3 +651,72 @@ The codebase was using a JavaScript file (`index.js`) as its primary entry point
 ### Verification
 - Verified 100% type-safety using `tsc --noEmit`.
 - Validated styling and syntax with `bun run lint` (0 lint errors in modified/created files).
+
+---
+
+## 28. Feature 34: Import / Restore from Backup
+
+### Goal
+- Allow users to import or restore their document metadata from a previously exported Zentra JSON backup file.
+
+### Changes Made
+- **`src/app/import-data.tsx`**: Created a new screen with a warning card, file picker entry point, JSON text input expander, parsed metadata preview section, and an "Import Documents" button.
+  - Parsed, validated backup files/text schemas, verifying a valid `documents` list exists.
+  - Implemented an interactive preview outlining document totals, new vs. duplicate count breakdown, and listing the first 5 records with state tags.
+  - Merged new documents into Zustand database. Sets `notificationsEnabled: false` on all imported records to prevent incorrect/stale background reminder triggers.
+  - Uses native `expo-document-picker` with runtime safety requires on mobile, and standard browser file inputs on Web.
+- **`src/app/(tabs)/profile.tsx`**: Added an "Import Data" row in the "Data" settings card section positioned below the "Export Data" row and above the "Delete All Documents" row, styled with a Feather `upload` icon.
+
+### Verification
+- Verified 100% type-safety using `tsc --noEmit`.
+- Validated styling and syntax with `bun run lint` (0 lint errors in modified/created files).
+
+---
+
+## 29. Feature 35: Recently Deleted (Soft Delete with 30-Day Recovery)
+
+### Goal
+- Replace hard delete with a soft delete system. Deleted documents are moved to a "Recently Deleted" bin (trash) and permanently removed after 30 days.
+
+### Changes Made
+- **`src/types/document.ts`**: Added optional properties `isDeleted?: boolean` and `deletedAt?: string` to `ZentraDocument`.
+- **`src/store/documentStore.ts`**:
+  - Refactored `deleteDocument` and `deleteMultipleDocuments` to soft-delete by setting `isDeleted: true` and `deletedAt: new Date().toISOString()`.
+  - Added action `restoreDocument(id)` to clear soft-delete state. Automatically reschedules local notifications if `notificationsEnabled` was true and global alerts are enabled.
+  - Added action `permanentlyDeleteDocument(id)` to completely remove the document from store, cancel local notifications on device, and delete the associated permanent file from the device storage.
+  - Added action `purgeExpiredTrash()` to automatically delete documents soft-deleted more than 30 days ago, executed once on app startup.
+  - Updated store selectors (such as computed `upcomingExpirations`) to filter out `isDeleted === true` documents from all dashboard listings.
+- **`src/app/recently-deleted.tsx`**: Created trash bin screen displaying all soft-deleted documents, remaining days until permanent deletion, and a Destructive "Delete All Permanently" button at the bottom.
+  - Implemented left swipe gestures (`Swipeable` from `react-native-gesture-handler`) on native mobile screens: green "Restore" (left swipe button) and red "Delete" (left swipe button).
+  - Configured reactive screen reader detection and web clients to display direct action buttons ("Restore" / "Delete") for accessible/compatible UX.
+- **`src/app/(tabs)/profile.tsx`**: Added a "Recently Deleted" navigation row under the Data section displaying the active count of items in the trash as a badge.
+- **`src/app/_layout.tsx`**: Wired the background startup execution of `purgeExpiredTrash()` inside the app's `InitialLayout` mount hook.
+- **Screen Filtering**: Updated selectors in Home, Documents, Favorites, Alerts, Search, and DashboardHeader to exclude soft-deleted items from being rendered.
+- **Import/Export Integration**: Updated export and import procedures to serialize and map `isDeleted` and `deletedAt` fields safely.
+
+### Verification
+- Verified 100% type safety with `bunx tsc --noEmit` completing successfully with 0 errors.
+- Validated linter warnings and resolved unused imports with `bun run lint` (0 lint errors in modified files).
+
+---
+
+## 30. Feature: Expiry Date Sorting on Home & Documents Screens
+
+### Goal
+- Allow users to sort documents by their nearest expiry date on both the Documents tab and the Home screen, providing immediate visibility into what is expiring soonest.
+
+### Changes Made
+- **Documents Screen (`src/app/(tabs)/documents.tsx`)**:
+  - Updated the default sorting method from `"added"` (date added descending) to `"expiry"` (expiry date ascending/soonest first) in the `sort` state initialization.
+  - The sort controls continue to allow the user to switch between `"name"`, `"expiry"`, and `"added"`.
+- **Home Screen (`src/app/(tabs)/index.tsx`)**:
+  - Added a `sort` state variable (defaulting to `"expiry"`) and a toggle control in the header of the "Recent Documents" section.
+  - Toggling "Expiry" sorts documents using the `sortByExpiry` utility and renames the section title to "Upcoming Expirations".
+  - Toggling "Recent" sorts documents by date added descending (the original behavior) and displays the title "Recent Documents".
+  - Updated `RecentDocRow` to accept the `sortMode` prop. When `sortMode === "expiry"`, it imports and renders the `<ExpiryBadge>` component inline next to the metadata to display remaining time.
+- **Imports & Types**:
+  - Imported `sortByExpiry` from `@/lib/date` and `ExpiryBadge` from `@/components/ExpiryBadge` in `src/app/(tabs)/index.tsx`.
+
+### Verification
+- Verified 100% type safety using `bunx tsc --noEmit` (completed successfully with 0 errors).
+- Validated syntax and formatting using `bun run lint` (completed successfully with 0 errors).

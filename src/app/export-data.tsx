@@ -68,6 +68,8 @@ export default function ExportDataScreen() {
           notificationsEnabled: doc.notificationsEnabled,
           isFavorite: doc.isFavorite,
           notes: doc.notes,
+          isDeleted: doc.isDeleted,
+          deletedAt: doc.deletedAt,
         })),
         notificationSettings,
       };

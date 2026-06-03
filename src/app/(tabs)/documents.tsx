@@ -11,7 +11,6 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { cancelDocumentNotifications } from "@/lib/notifications";
-import * as FileSystem from "expo-file-system/legacy";
 import {
     AccessibilityInfo,
     Alert,
@@ -44,7 +43,7 @@ export default function DocumentsScreen() {
   const [selectedCategory, setSelectedCategory] =
     useState<DocumentCategory | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [sort, setSort] = useState<"name" | "expiry" | "added">("added");
+  const [sort, setSort] = useState<"name" | "expiry" | "added">("expiry");
 
   // Selection Mode State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -112,20 +111,7 @@ export default function DocumentsScreen() {
       // 1. Cancel notifications for each selected document
       await Promise.all(docIds.map((id) => cancelDocumentNotifications(id)));
 
-      // 2. Delete local files for each selected document
-      const permanentDirectory = FileSystem.documentDirectory;
-      for (const id of docIds) {
-        const doc = documents.find((d) => d.id === id);
-        if (doc?.localUri && permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
-          try {
-            await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
-          } catch (e) {
-            console.warn("Failed to delete file on bulk delete:", e);
-          }
-        }
-      }
-
-      // 3. Call store actions
+      // 2. Call store actions
       if (docIds.length > 0) {
         deleteMultipleDocuments(docIds);
       }
@@ -133,7 +119,7 @@ export default function DocumentsScreen() {
         deleteMultipleFolders(folderNames);
       }
 
-      // 4. Update accessibility announcements and state
+      // 3. Update accessibility announcements and state
       AccessibilityInfo.announceForAccessibility(
         `Deleted ${docIds.length} documents and ${folderNames.length} folders`
       );
@@ -145,13 +131,14 @@ export default function DocumentsScreen() {
     }
   };
 
-  // Calculate category folder item counts dynamically
+  // Calculate category folder item counts dynamically (excluding soft-deleted documents)
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     folders.forEach((f) => {
       counts[f] = 0;
     });
     documents.forEach((doc) => {
+      if (doc.isDeleted) return; // Ignore soft-deleted documents
       if (counts[doc.category] !== undefined) {
         counts[doc.category]++;
       } else {
@@ -217,9 +204,11 @@ export default function DocumentsScreen() {
     setFolderToDelete(null);
   };
 
-  // Combined documents filtering logic
+  // Combined documents filtering logic (excluding soft-deleted documents)
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) => {
+      if (doc.isDeleted) return false; // Ignore soft-deleted documents
+
       // 1. File Type filter tab
       if (selectedTab !== "All") {
         const tabToTypeMap: Record<string, string> = {
@@ -264,7 +253,8 @@ export default function DocumentsScreen() {
     selectedCategory === null;
 
   const renderEmptyState = () => {
-    if (documents.length === 0) {
+    const activeDocsCount = documents.filter((d) => !d.isDeleted).length;
+    if (activeDocsCount === 0) {
       return (
         <EmptyState
           icon="document-text-outline"

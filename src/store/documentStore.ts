@@ -27,6 +27,9 @@ interface DocumentStore {
   updateDocument: (id: string, updates: Partial<ZentraDocument>) => void;
   deleteDocument: (id: string) => void;
   deleteMultipleDocuments: (ids: string[]) => void;
+  restoreDocument: (id: string) => void;
+  permanentlyDeleteDocument: (id: string) => void;
+  purgeExpiredTrash: () => void;
   toggleFavorite: (id: string) => void;
   toggleNotification: (id: string) => void;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
@@ -41,7 +44,8 @@ interface DocumentStore {
 }
 
 const computeUpcoming = (documents: ZentraDocument[]): ZentraDocument[] => {
-  return sortByExpiry(filterUpcoming(documents, 90));
+  const activeDocs = documents.filter((doc) => !doc.isDeleted);
+  return sortByExpiry(filterUpcoming(activeDocs, 90));
 };
 
 export const useDocumentStore = create<DocumentStore>()(
@@ -144,12 +148,19 @@ export const useDocumentStore = create<DocumentStore>()(
       deleteDocument: (id) => {
         try {
           set((state) => {
-            const updatedDocs = state.documents.filter((doc) => doc.id !== id);
-            const readAlerts = state.readAlerts || [];
+            const updatedDocs = state.documents.map((doc) =>
+              doc.id === id
+                ? {
+                    ...doc,
+                    isDeleted: true,
+                    deletedAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }
+                : doc
+            );
             return {
               documents: updatedDocs,
               upcomingExpirations: computeUpcoming(updatedDocs),
-              readAlerts: readAlerts.filter((alertId) => alertId !== id),
             };
           });
         } catch (error) {
@@ -160,16 +171,157 @@ export const useDocumentStore = create<DocumentStore>()(
       deleteMultipleDocuments: (ids) => {
         try {
           set((state) => {
-            const updatedDocs = state.documents.filter((doc) => !ids.includes(doc.id));
-            const readAlerts = state.readAlerts || [];
+            const updatedDocs = state.documents.map((doc) =>
+              ids.includes(doc.id)
+                ? {
+                    ...doc,
+                    isDeleted: true,
+                    deletedAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }
+                : doc
+            );
             return {
               documents: updatedDocs,
               upcomingExpirations: computeUpcoming(updatedDocs),
-              readAlerts: readAlerts.filter((alertId) => !ids.includes(alertId)),
             };
           });
         } catch (error) {
           console.error("[DocumentStore] Failed to delete multiple documents:", error);
+        }
+      },
+
+      restoreDocument: (id) => {
+        try {
+          const { documents, notificationSettings } = get();
+          const doc = documents.find((d) => d.id === id);
+          if (!doc) return;
+
+          const updatedDocs = documents.map((d) =>
+            d.id === id
+              ? {
+                  ...d,
+                  isDeleted: false,
+                  deletedAt: undefined,
+                  updatedAt: new Date().toISOString(),
+                }
+              : d
+          );
+
+          set({
+            documents: updatedDocs,
+            upcomingExpirations: computeUpcoming(updatedDocs),
+          });
+
+          // Reschedule notifications if notificationsEnabled was true
+          if (doc.notificationsEnabled && notificationSettings.globalEnabled) {
+            void (async () => {
+              try {
+                const updatedDoc = get().documents.find((d) => d.id === id);
+                if (updatedDoc) {
+                  await scheduleDocumentNotifications(
+                    updatedDoc,
+                    notificationSettings.advanceNoticeDays,
+                    notificationSettings.reminderTime || "09:00",
+                  );
+                }
+              } catch (err) {
+                console.error("Failed to reschedule notifications on restore:", err);
+              }
+            })();
+          }
+        } catch (error) {
+          console.error("[DocumentStore] Failed to restore document:", error);
+        }
+      },
+
+      permanentlyDeleteDocument: (id) => {
+        try {
+          const doc = get().documents.find((d) => d.id === id);
+          if (doc) {
+            // 1. Cancel notifications
+            void cancelDocumentNotifications(id);
+            // 2. Delete file
+            if (doc.localUri) {
+              void (async () => {
+                try {
+                  const FileSystem = await import("expo-file-system/legacy");
+                  const permanentDirectory = FileSystem.documentDirectory;
+                  if (permanentDirectory && doc.localUri && doc.localUri.startsWith(permanentDirectory)) {
+                    await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
+                  }
+                } catch (err) {
+                  console.warn("Failed to delete file for permanently deleted document:", err);
+                }
+              })();
+            }
+          }
+          set((state) => {
+            const updatedDocs = state.documents.filter((d) => d.id !== id);
+            const readAlerts = state.readAlerts || [];
+            return {
+              documents: updatedDocs,
+              upcomingExpirations: computeUpcoming(updatedDocs),
+              readAlerts: readAlerts.filter((alertId) => alertId !== id),
+            };
+          });
+        } catch (error) {
+          console.error("[DocumentStore] Failed to permanently delete document:", error);
+        }
+      },
+
+      purgeExpiredTrash: () => {
+        try {
+          const { documents } = get();
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+          const toPurge = documents.filter(
+            (doc) =>
+              doc.isDeleted &&
+              doc.deletedAt &&
+              new Date(doc.deletedAt).getTime() < thirtyDaysAgo.getTime()
+          );
+
+          if (toPurge.length === 0) return;
+
+          // Perform purge asynchronously
+          void (async () => {
+            for (const doc of toPurge) {
+              // Cancel notifications
+              try {
+                await cancelDocumentNotifications(doc.id);
+              } catch (e) {
+                console.warn("Failed to cancel notifications for purged doc:", e);
+              }
+
+              // Delete file
+              if (doc.localUri) {
+                try {
+                  const FileSystem = await import("expo-file-system/legacy");
+                  const permanentDirectory = FileSystem.documentDirectory;
+                  if (permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
+                    await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
+                  }
+                } catch (e) {
+                  console.warn("Failed to delete file for purged doc:", e);
+                }
+              }
+            }
+          })();
+
+          const purgeIds = toPurge.map((d) => d.id);
+          set((state) => {
+            const updatedDocs = state.documents.filter((d) => !purgeIds.includes(d.id));
+            const readAlerts = state.readAlerts || [];
+            return {
+              documents: updatedDocs,
+              upcomingExpirations: computeUpcoming(updatedDocs),
+              readAlerts: readAlerts.filter((alertId) => !purgeIds.includes(alertId)),
+            };
+          });
+        } catch (error) {
+          console.error("[DocumentStore] Failed to purge expired trash:", error);
         }
       },
 
