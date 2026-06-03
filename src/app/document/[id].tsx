@@ -127,8 +127,8 @@ export default function DocumentDetailsScreen() {
     router.replace("/(tabs)");
   };
 
-  // Find the active document
-  const doc = documents.find((d) => d.id === id);
+  // Find the active document (excluding soft-deleted ones)
+  const doc = documents.find((d) => d.id === id && !d.isDeleted);
 
   if (!doc) {
     return (

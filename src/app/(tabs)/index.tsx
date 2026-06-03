@@ -1,6 +1,6 @@
 import DashboardHeader from "@/components/DashboardHeader";
 import EmptyState from "@/components/EmptyState";
-import { formatDate } from "@/lib/date";
+import { formatDate, sortByExpiry } from "@/lib/date";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
@@ -9,9 +9,9 @@ import { isToday, isYesterday, parseISO } from "date-fns";
 import { useRouter } from "expo-router";
 import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import ExpiryBadge from "@/components/ExpiryBadge";
 import { cancelDocumentNotifications } from "@/lib/notifications";
 import React, { useMemo, useState } from "react";
-import * as FileSystem from "expo-file-system/legacy";
 import {
   AccessibilityInfo,
   Alert,
@@ -185,6 +185,7 @@ function RecentDocRow({
   isSelectionMode = false,
   isSelected = false,
   onLongPress,
+  sortMode = "expiry",
 }: {
   doc: ZentraDocument;
   isLast: boolean;
@@ -193,6 +194,7 @@ function RecentDocRow({
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onLongPress?: () => void;
+  sortMode?: "added" | "expiry";
 }) {
   const { iconName, iconColor, bgColor } = getDocVisuals(
     doc.name,
@@ -222,7 +224,12 @@ function RecentDocRow({
         <Text numberOfLines={1} className="text-body-lg text-primary font-medium">
           {doc.name}
         </Text>
-        <Text className="text-caption text-secondary mt-0.5">{meta}</Text>
+        <View className="flex-row items-center flex-wrap gap-2 mt-0.5">
+          <Text className="text-caption text-secondary">{meta}</Text>
+          {sortMode === "expiry" && (
+            <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={false} />
+          )}
+        </View>
       </View>
 
       {isSelectionMode ? (
@@ -297,25 +304,12 @@ export default function HomeScreen() {
       // 1. Cancel notifications for each selected document
       await Promise.all(docIds.map((id) => cancelDocumentNotifications(id)));
 
-      // 2. Delete local files for each selected document
-      const permanentDirectory = FileSystem.documentDirectory;
-      for (const id of docIds) {
-        const doc = documents.find((d) => d.id === id);
-        if (doc?.localUri && permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
-          try {
-            await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
-          } catch (e) {
-            console.warn("Failed to delete file on bulk delete:", e);
-          }
-        }
-      }
-
-      // 3. Call store actions
+      // 2. Call store actions
       if (docIds.length > 0) {
         deleteMultipleDocuments(docIds);
       }
 
-      // 4. Update accessibility announcements and state
+      // 3. Update accessibility announcements and state
       AccessibilityInfo.announceForAccessibility(`Deleted ${docIds.length} documents`);
     } catch (error) {
       console.error("Bulk delete failed:", error);
@@ -338,11 +332,16 @@ export default function HomeScreen() {
     setDocToDelete(null);
   };
 
+  // Sorting state
+  const [sort, setSort] = useState<"expiry" | "added">("expiry");
+
   const sorted = useMemo(() => {
-    return [...documents].sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
-    );
-  }, [documents]);
+    const activeDocs = documents.filter((doc) => !doc.isDeleted);
+    if (sort === "expiry") {
+      return sortByExpiry(activeDocs);
+    }
+    return activeDocs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [documents, sort]);
 
   const recentDocs = useMemo(() => {
     return sorted.slice(0, 4);
@@ -351,8 +350,8 @@ export default function HomeScreen() {
   const quickAccessDocs = useMemo(() => {
     return sorted
       .filter(
-        (doc) =>
-          doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
+         (doc) =>
+           doc.isFavorite && !recentDocs.some((recent) => recent.id === doc.id),
       )
       .slice(0, 4);
   }, [sorted, recentDocs]);
@@ -498,7 +497,7 @@ export default function HomeScreen() {
             </View>
           </Pressable>
 
-          {documents.length === 0 ? (
+          {sorted.length === 0 ? (
             // ---------------------------------------------------------------
             // Empty state
             // ---------------------------------------------------------------
@@ -575,11 +574,37 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {/* Recent Documents */}
+              {/* Recent Documents / Upcoming Expirations */}
               <View className="px-6 mb-6">
-                <Text className="text-h2 text-primary mb-4 font-semibold">
-                  Recent Documents
-                </Text>
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text className="text-h2 text-primary font-semibold">
+                    {sort === "expiry" ? "Upcoming Expirations" : "Recent Documents"}
+                  </Text>
+                  {!isSelectionMode && (
+                    <View className="flex-row bg-soft-accent rounded-full p-0.5">
+                      <Pressable
+                        onPress={() => setSort("expiry")}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sort by nearest expiry date"
+                        className={`px-3 py-1 rounded-full ${sort === "expiry" ? "bg-accent" : "bg-transparent"}`}
+                      >
+                        <Text className={`text-caption font-semibold ${sort === "expiry" ? "text-white" : "text-secondary"}`}>
+                          Expiry
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setSort("added")}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sort by date added"
+                        className={`px-3 py-1 rounded-full ${sort === "added" ? "bg-accent" : "bg-transparent"}`}
+                      >
+                        <Text className={`text-caption font-semibold ${sort === "added" ? "text-white" : "text-secondary"}`}>
+                          Recent
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
 
                 <View
                   className="bg-surface rounded-2xl overflow-hidden"
@@ -592,6 +617,7 @@ export default function HomeScreen() {
                       isLast={i === recentDocs.length - 1}
                       isSelectionMode={isSelectionMode}
                       isSelected={selectedDocumentIds.has(doc.id)}
+                      sortMode={sort}
                       onPress={() => {
                         if (isSelectionMode) {
                           toggleDocumentSelection(doc.id);

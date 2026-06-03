@@ -60,7 +60,19 @@ function InitialLayout() {
     requestNotificationPermissions();
   }, []);
 
-
+  // Purge expired trash (older than 30 days) on startup after store hydration
+  useEffect(() => {
+    if (_hasHydrated) {
+      try {
+        const purgeExpiredTrash = useDocumentStore.getState().purgeExpiredTrash;
+        if (purgeExpiredTrash) {
+          purgeExpiredTrash();
+        }
+      } catch (err) {
+        console.error("[RootLayout] Failed to purge expired trash on startup:", err);
+      }
+    }
+  }, [_hasHydrated]);
   // Listener A — foreground notification received (no navigation)
   // Listener B — user taps a notification (background or active state)
   useEffect(() => {

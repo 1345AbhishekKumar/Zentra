@@ -130,13 +130,15 @@ export default function ProfileScreen() {
   const email = user?.primaryEmailAddress?.emailAddress || "";
   const avatarUrl = user?.imageUrl;
 
-  // Stats calculations
-  const totalCount = documents.length;
-  const expiringSoonCount = documents.filter((doc) => {
+  // Stats calculations (excluding soft-deleted documents)
+  const activeDocs = documents.filter((doc) => !doc.isDeleted);
+  const totalCount = activeDocs.length;
+  const expiringSoonCount = activeDocs.filter((doc) => {
     const urgency = expiryUrgency(doc.expiryDate);
     return urgency === "critical" || urgency === "warning";
   }).length;
-  const favoritesCount = documents.filter((doc) => doc.isFavorite).length;
+  const favoritesCount = activeDocs.filter((doc) => doc.isFavorite).length;
+  const deletedDocumentsCount = documents.filter((doc) => doc.isDeleted).length;
 
   // Edit Name Modal trigger
   const openNameModal = () => {
@@ -888,6 +890,26 @@ export default function ProfileScreen() {
               className="bg-surface rounded-2xl border border-border/40 overflow-hidden"
               style={styles.cardShadow}
             >
+              <Pressable
+                onPress={() => router.push("/recently-deleted")}
+                accessibilityRole="button"
+                accessibilityLabel="Recently Deleted"
+                className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+              >
+                <Feather name="trash" size={20} color={colors.primary} />
+                <Text className="text-body-lg ml-3 font-medium flex-1 text-primary">
+                  Recently Deleted
+                </Text>
+                {deletedDocumentsCount > 0 && (
+                  <View className="bg-accent rounded-full px-2 py-0.5 mr-2 justify-center items-center">
+                    <Text className="text-white text-[11px] font-bold font-display">
+                      {deletedDocumentsCount}
+                    </Text>
+                  </View>
+                )}
+                <Feather name="chevron-right" size={18} color="#C7C7CC" />
+              </Pressable>
+
               <Pressable
                 onPress={() => router.push("/export-data")}
                 accessibilityRole="button"
