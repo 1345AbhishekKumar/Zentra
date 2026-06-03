@@ -6,6 +6,7 @@ import { isToday, isYesterday, parseISO } from "date-fns";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import ExpiryBadge from "./ExpiryBadge";
+import ScalePressable from "./ScalePressable";
 
 interface DocumentCardProps {
   doc: ZentraDocument;
@@ -15,6 +16,7 @@ interface DocumentCardProps {
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onLongPress?: () => void;
+  hideExpirySafe?: boolean;
 }
 
 type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
@@ -74,6 +76,7 @@ export default function DocumentCard({
   isSelectionMode = false,
   isSelected = false,
   onLongPress,
+  hideExpirySafe = true,
 }: DocumentCardProps) {
   const { iconName, iconColor, bgColor } = getFileVisuals(doc.fileType);
   const dateStr = formatAddedDate(doc.createdAt);
@@ -81,7 +84,7 @@ export default function DocumentCard({
 
   if (viewMode === "grid") {
     return (
-      <Pressable
+      <ScalePressable
         onPress={onPress}
         onLongPress={onLongPress}
         delayLongPress={200}
@@ -102,7 +105,7 @@ export default function DocumentCard({
               <Feather
                 name={isSelected ? "check-circle" : "circle"}
                 size={20}
-                color={isSelected ? colors.accent : "#B3B3B3"}
+                color={isSelected ? colors.accent : colors.secondary}
               />
             </View>
           ) : (
@@ -136,15 +139,15 @@ export default function DocumentCard({
         </Text>
 
         <View className="self-start">
-          <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={true} />
+          <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={hideExpirySafe} />
         </View>
-      </Pressable>
+      </ScalePressable>
     );
   }
 
   // List view mode (Default)
   return (
-    <Pressable
+    <ScalePressable
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={200}
@@ -170,7 +173,7 @@ export default function DocumentCard({
           <Text className="text-caption text-secondary">
             {sizeStr} • {dateStr}
           </Text>
-          <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={true} />
+          <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={hideExpirySafe} />
         </View>
       </View>
 
@@ -179,7 +182,7 @@ export default function DocumentCard({
           <Feather
             name={isSelected ? "check-circle" : "circle"}
             size={22}
-            color={isSelected ? colors.accent : "#B3B3B3"}
+            color={isSelected ? colors.accent : colors.secondary}
           />
         </View>
       ) : (
@@ -199,7 +202,7 @@ export default function DocumentCard({
           />
         </Pressable>
       )}
-    </Pressable>
+    </ScalePressable>
   );
 }
 

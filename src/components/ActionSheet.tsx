@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScalePressable from "./ScalePressable";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
@@ -58,7 +59,7 @@ export default function ActionSheet({
             {options.map((option, index) => {
               const isLast = index === options.length - 1;
               return (
-                <Pressable
+                <ScalePressable
                   key={index}
                   onPress={() => {
                     onClose();
@@ -85,23 +86,23 @@ export default function ActionSheet({
                   >
                     {option.label}
                   </Text>
-                </Pressable>
+                </ScalePressable>
               );
             })}
           </View>
 
           {/* Cancel button */}
           <View className="px-4 pb-4 bg-surface">
-            <Pressable
+            <ScalePressable
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
               className="w-full bg-background border border-border py-4 rounded-xl items-center justify-center active:opacity-75 min-h-[52px]"
             >
-              <Text className="text-body-lg font-bold text-primary font-display">
+              <Text className="text-body-lg font-bold text-primary font-display font-semibold">
                 Cancel
               </Text>
-            </Pressable>
+            </ScalePressable>
           </View>
 
           {/* Safe Area spacer */}

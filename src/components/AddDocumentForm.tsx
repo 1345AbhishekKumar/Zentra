@@ -6,13 +6,12 @@ import { DocumentCategory, DocumentFileType, ZentraDocument } from "@/types";
 import { isValid, parseISO, startOfDay, startOfToday } from "date-fns";
 import { useState } from "react";
 import {
-    Pressable,
     ScrollView,
-    StyleSheet,
     Text,
     TextInput,
     View,
 } from "react-native";
+import ScalePressable from "./ScalePressable";
 
 interface AddDocumentFormProps {
   onSubmit: (doc: ZentraDocument) => void;
@@ -272,21 +271,20 @@ export default function AddDocumentForm({
               const isSelected = category === cat;
               const pillStyles = getCategoryPillStyle(cat, isSelected, folders);
               return (
-                <Pressable
+                <ScalePressable
                   key={cat}
                   onPress={() => setCategory(cat)}
                   accessibilityRole="button"
                   accessibilityLabel={`Category: ${cat}`}
                   accessibilityState={{ selected: category === cat }}
                   className={`px-4 rounded-full border min-h-11 min-w-11 justify-center ${pillStyles.bgClass}`}
-                  style={({ pressed }) => [pressed && styles.pressedScale]}
                 >
                   <Text
                     className={`text-body-md font-semibold ${pillStyles.textClass}`}
                   >
                     {cat}
                   </Text>
-                </Pressable>
+                </ScalePressable>
               );
             })}
           </View>
@@ -301,7 +299,7 @@ export default function AddDocumentForm({
             {FILE_TYPES.map((type) => {
               const isSelected = fileType === type.value;
               return (
-                <Pressable
+                <ScalePressable
                   key={type.value}
                   onPress={() => setFileType(type.value)}
                   accessibilityRole="button"
@@ -312,7 +310,6 @@ export default function AddDocumentForm({
                       ? "bg-accent border-accent"
                       : "bg-surface border-border"
                   }`}
-                  style={({ pressed }) => [pressed && styles.pressedScale]}
                 >
                   <Text
                     className={`text-body-md font-semibold ${
@@ -321,7 +318,7 @@ export default function AddDocumentForm({
                   >
                     {type.label}
                   </Text>
-                </Pressable>
+                </ScalePressable>
               );
             })}
           </View>
@@ -406,40 +403,30 @@ export default function AddDocumentForm({
 
         {/* Action Buttons Row */}
         <View className="flex-row gap-3 pt-2">
-          <Pressable
+          <ScalePressable
             onPress={onCancel}
             accessibilityRole="button"
             accessibilityLabel="Cancel saving document"
             className="flex-1 h-[52px] border border-border rounded-xl items-center justify-center bg-surface active:bg-background px-6"
-            style={({ pressed }) => [pressed && styles.pressedScale]}
           >
             <Text className="text-button text-secondary font-semibold">
               Cancel
             </Text>
-          </Pressable>
+          </ScalePressable>
 
-          <Pressable
+          <ScalePressable
             onPress={handleSave}
             accessibilityRole="button"
             accessibilityLabel={initialValues ? "Update document details" : "Save document details"}
             className="h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-95 px-6"
-            style={({ pressed }) => [
-              { flex: 2 },
-              pressed && styles.pressedScale,
-            ]}
+            style={{ flex: 2 }}
           >
             <Text className="text-button text-white font-semibold">
               {initialValues ? "Update Document" : "Save Document"}
             </Text>
-          </Pressable>
+          </ScalePressable>
         </View>
       </View>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  pressedScale: {
-    transform: [{ scale: 0.98 }],
-  },
-});

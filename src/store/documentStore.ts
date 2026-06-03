@@ -35,6 +35,7 @@ interface DocumentStore {
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   recomputeUpcoming: () => void;
   clearAllData: () => void;
+  seedStore: (documents: ZentraDocument[], folders: string[]) => void;
   addFolder: (name: string) => boolean;
   renameFolder: (oldName: string, newName: string) => boolean;
   deleteFolder: (name: string) => void;
@@ -382,6 +383,42 @@ export const useDocumentStore = create<DocumentStore>()(
           folders: [...DEFAULT_FOLDERS],
           readAlerts: [],
         });
+      },
+
+      seedStore: (seededDocs, seededFolders) => {
+        try {
+          console.log(`[Zentra Debug] seedStore action called with ${seededDocs.length} docs`);
+          set((state) => {
+            // 1. Merge folders
+            const updatedFolders = [...state.folders];
+            seededFolders.forEach((f) => {
+              const trimmed = f.trim();
+              if (trimmed && !updatedFolders.some((folder) => folder.toLowerCase() === trimmed.toLowerCase())) {
+                updatedFolders.push(trimmed);
+              }
+            });
+
+            // 2. Filter out any existing demo documents to avoid duplicates or stale soft-deleted states
+            const nonDemoDocs = state.documents.filter((d) => !d.id.startsWith("demo-"));
+
+            // 3. Combine non-demo documents with new seeded documents
+            const updatedDocs = [...nonDemoDocs, ...seededDocs];
+
+            // 4. Clean up any read alert history for demo documents to reset alert triggers
+            const updatedReadAlerts = (state.readAlerts || []).filter((id) => !id.startsWith("demo-"));
+
+            console.log(`[Zentra Debug] Merged docs. Previous total: ${state.documents.length}, Non-demo: ${nonDemoDocs.length}, New total: ${updatedDocs.length}`);
+
+            return {
+              folders: updatedFolders,
+              documents: updatedDocs,
+              upcomingExpirations: computeUpcoming(updatedDocs),
+              readAlerts: updatedReadAlerts,
+            };
+          });
+        } catch (error) {
+          console.error("[DocumentStore] Failed to seed store:", error);
+        }
       },
 
       addFolder: (name) => {

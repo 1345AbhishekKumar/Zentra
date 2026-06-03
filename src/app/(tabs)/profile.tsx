@@ -20,6 +20,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import NotificationToggle from "@/components/NotificationToggle";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import ScalePressable from "@/components/ScalePressable";
 import {
   cancelAllNotifications,
   scheduleDocumentNotifications,
@@ -603,16 +604,16 @@ export default function ProfileScreen() {
               {email}
             </Text>
 
-            <Pressable
+            <ScalePressable
               onPress={openNameModal}
               accessibilityRole="button"
               accessibilityLabel="Edit profile name"
-              className="mt-3.5 px-4 bg-soft-accent rounded-full active:opacity-80 min-h-11 justify-center"
+              className="mt-3.5 px-4 bg-soft-accent rounded-full active:opacity-80 min-h-11 justify-center animate-scale"
             >
               <Text className="text-body-md text-accent font-semibold">
                 Edit Profile
               </Text>
-            </Pressable>
+            </ScalePressable>
           </View>
         </View>
 
@@ -936,6 +937,31 @@ export default function ProfileScreen() {
                 <Feather name="chevron-right" size={18} color="#C7C7CC" />
               </Pressable>
 
+              {__DEV__ && (
+                <Pressable
+                  onPress={async () => {
+                    try {
+                      // eslint-disable-next-line @typescript-eslint/no-require-imports
+                      const { seedMockData } = require("@/lib/seed");
+                      await seedMockData();
+                      Alert.alert("Success", "Demo documents loaded successfully.");
+                    } catch (err) {
+                      console.warn("Failed to seed demo data:", err);
+                      Alert.alert("Seeding Failed", "Could not load demo documents.");
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Seed Demo Documents"
+                  className="flex-row items-center px-4 py-4 border-b border-border/30 active:bg-background/50"
+                >
+                  <Feather name="database" size={20} color={colors.accent} />
+                  <Text className="text-body-lg ml-3 font-semibold flex-1 text-accent">
+                    Seed Demo Documents
+                  </Text>
+                  <Feather name="chevron-right" size={18} color="#C7C7CC" />
+                </Pressable>
+              )}
+
               <Pressable
                 onPress={handleDeleteAllData}
                 accessibilityRole="button"
@@ -1023,7 +1049,7 @@ export default function ProfileScreen() {
 
         {/* Sign Out Button */}
         <View className="px-6 mt-8">
-          <Pressable
+          <ScalePressable
             onPress={handleSignOut}
             style={styles.cardShadow}
             accessibilityRole="button"
@@ -1031,7 +1057,7 @@ export default function ProfileScreen() {
             className="w-full bg-surface py-4 rounded-xl items-center justify-center border border-border/40 active:opacity-75"
           >
             <Text className="text-body-lg font-semibold text-danger">Sign Out</Text>
-          </Pressable>
+          </ScalePressable>
         </View>
       </ScrollView>
 
@@ -1084,15 +1110,15 @@ export default function ProfileScreen() {
               </View>
 
               <View className="flex-row gap-3">
-                <Pressable
+                <ScalePressable
                   onPress={() => setIsNameModalVisible(false)}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel editing name"
                   className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
                 >
                   <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
-                </Pressable>
-                <Pressable
+                </ScalePressable>
+                <ScalePressable
                   onPress={handleSaveName}
                   disabled={isSavingName}
                   accessibilityRole="button"
@@ -1104,7 +1130,7 @@ export default function ProfileScreen() {
                   ) : (
                     <Text className="text-body-lg font-semibold text-white">Save</Text>
                   )}
-                </Pressable>
+                </ScalePressable>
               </View>
             </View>
           </View>
@@ -1163,7 +1189,7 @@ export default function ProfileScreen() {
               />
 
               <View className="flex-row gap-3">
-                <Pressable
+                <ScalePressable
                   onPress={() => {
                     setIsCustomDaysModalVisible(false);
                     setCustomDaysInput("");
@@ -1173,15 +1199,15 @@ export default function ProfileScreen() {
                   className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
                 >
                   <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
-                </Pressable>
-                <Pressable
+                </ScalePressable>
+                <ScalePressable
                   onPress={handleAddCustomDay}
                   accessibilityRole="button"
                   accessibilityLabel="Add custom reminder day"
                   className="flex-1 bg-accent py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
                 >
                   <Text className="text-body-lg font-semibold text-white">Add</Text>
-                </Pressable>
+                </ScalePressable>
               </View>
             </View>
           </View>
@@ -1207,31 +1233,29 @@ export default function ProfileScreen() {
             >
               {/* Toolbar */}
               <View className="flex-row items-center justify-between px-6 py-4 border-b border-border bg-background">
-                <Pressable
+                <ScalePressable
                   onPress={() => setIsTimeModalVisible(false)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel time selection"
-                  className="active:opacity-60"
                 >
                   <Text className="text-body-md text-secondary font-semibold font-display">
                     Cancel
                   </Text>
-                </Pressable>
+                </ScalePressable>
                 <Text className="text-body-lg text-primary font-bold font-display">
                   Reminder Time
                 </Text>
-                <Pressable
+                <ScalePressable
                   onPress={handleConfirmTimePicker}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityRole="button"
                   accessibilityLabel="Confirm time selection"
-                  className="active:opacity-60"
                 >
                   <Text className="text-body-md text-accent font-bold font-display">
                     Done
                   </Text>
-                </Pressable>
+                </ScalePressable>
               </View>
 
               {/* Time Picker Controls */}
