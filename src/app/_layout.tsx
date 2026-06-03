@@ -131,6 +131,16 @@ function InitialLayout() {
         appState.current.match(/inactive|background/) &&
         nextAppState === "active"
       ) {
+        // Sync notifications when returning from background
+        try {
+          const { syncAllNotifications } = await import("@/lib/notifications");
+          const documents = useDocumentStore.getState().documents;
+          const notificationSettings = useDocumentStore.getState().notificationSettings;
+          await syncAllNotifications(documents, notificationSettings);
+        } catch (e) {
+          console.error("[RootLayout] Failed to sync notifications on foregrounding:", e);
+        }
+
         if (!isInitialLaunch.current) {
           const isAuthRoute = segments[0] === "(auth)";
           if (isLockEnabled && isSignedIn && !isAuthRoute) {

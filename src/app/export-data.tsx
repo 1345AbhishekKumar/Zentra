@@ -6,9 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
-  Platform,
-  Share,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -16,25 +13,7 @@ import { colors } from "@/theme/tokens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDocumentStore } from "@/store/documentStore";
 import Constants from "expo-constants";
-import * as FileSystem from "expo-file-system/legacy";
-import type * as SharingType from "expo-sharing";
-import { requireOptionalNativeModule } from "expo-modules-core";
-
-const getSharingModule = (): typeof SharingType | null => {
-  if (Platform.OS === "web") {
-    return null;
-  }
-  try {
-    const isAvailable = !!requireOptionalNativeModule("ExpoSharing");
-    if (isAvailable) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require("expo-sharing");
-    }
-  } catch {
-    // Native module not available
-  }
-  return null;
-};
+import { exportBackup } from "@/lib/share";
 
 export default function ExportDataScreen() {
   const router = useRouter();
@@ -53,72 +32,9 @@ export default function ExportDataScreen() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        appVersion: Constants.expoConfig?.version || "1.0.0",
-        documents: documents.map((doc) => ({
-          id: doc.id,
-          name: doc.name,
-          category: doc.category,
-          fileType: doc.fileType,
-          expiryDate: doc.expiryDate,
-          createdAt: doc.createdAt,
-          updatedAt: doc.updatedAt,
-          sizeLabel: doc.sizeLabel,
-          notificationsEnabled: doc.notificationsEnabled,
-          isFavorite: doc.isFavorite,
-          notes: doc.notes,
-          isDeleted: doc.isDeleted,
-          deletedAt: doc.deletedAt,
-        })),
-        notificationSettings,
-      };
-
-      const json = JSON.stringify(exportData, null, 2);
-
-      // Web Flow
-      if (Platform.OS === "web") {
-        const element = document.createElement("a");
-        const file = new Blob([json], { type: "application/json" });
-        element.href = URL.createObjectURL(file);
-        element.download = "zentra_backup.json";
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-        Alert.alert("Success", "Backup file downloaded successfully!");
-        setIsExporting(false);
-        return;
-      }
-
-      // Native Flow
-      const tempPath = FileSystem.cacheDirectory + "zentra_backup.json";
-      await FileSystem.writeAsStringAsync(tempPath, json);
-
-      const Sharing = getSharingModule();
-      const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-
-      if (Sharing && isSharingAvailable) {
-        await Sharing.shareAsync(tempPath, {
-          mimeType: "application/json",
-          dialogTitle: "Export Zentra Data",
-        });
-      } else {
-        // Fallback to React Native Share API for native platforms
-        await Share.share({
-          message: json,
-          title: "Zentra Backup Data",
-        });
-      }
-
-      // Cleanup cache file
-      try {
-        await FileSystem.deleteAsync(tempPath, { idempotent: true });
-      } catch (err) {
-        console.warn("Failed to delete temp backup file:", err);
-      }
+      await exportBackup(documents, notificationSettings, Constants.expoConfig?.version || "1.0.0");
     } catch (error) {
       console.error("Export failed:", error);
-      Alert.alert("Export Failed", "An error occurred while generating or sharing your backup.");
     } finally {
       setIsExporting(false);
     }

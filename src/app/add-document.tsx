@@ -1,11 +1,9 @@
 import AddDocumentForm from "@/components/AddDocumentForm";
-import { scheduleDocumentNotifications } from "@/lib/notifications";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { saveFilePermanently } from "@/lib/share";
 import {
     AccessibilityInfo,
     KeyboardAvoidingView,
@@ -19,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function AddDocumentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { addDocument, folders, notificationSettings } = useDocumentStore();
+  const { addDocument, folders } = useDocumentStore();
   const goBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -29,32 +27,11 @@ export default function AddDocumentScreen() {
   };
 
   const handleFormSubmit = async (newDoc: ZentraDocument) => {
-    // 1. Save file permanently if there is an attachment
-    if (newDoc.localUri) {
-      const permanentUri = await saveFilePermanently(newDoc.localUri, newDoc.name);
-      if (permanentUri) {
-        newDoc.localUri = permanentUri;
-      }
-    }
-
-    // 2. Persist the document in the local store
-    addDocument(newDoc);
+    // 1. Persist the document in the local store (which handles file saving and notifications)
+    await addDocument(newDoc);
     AccessibilityInfo.announceForAccessibility("Document saved");
 
-    // 2. Schedule notifications on the device if enabled
-    if (newDoc.notificationsEnabled && notificationSettings.globalEnabled) {
-      try {
-        await scheduleDocumentNotifications(
-          newDoc,
-          notificationSettings.advanceNoticeDays,
-          notificationSettings.reminderTime || "09:00",
-        );
-      } catch (err) {
-        console.error("Failed to schedule document notifications:", err);
-      }
-    }
-
-    // 3. Navigate back to previous screen
+    // 2. Navigate back to previous screen
     goBack();
   };
 

@@ -1,4 +1,4 @@
-import { ZentraDocument } from "@/types";
+import { ZentraDocument, NotificationSettings } from "@/types";
 import { parseISO, subDays } from "date-fns";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -191,5 +191,118 @@ export async function getScheduledNotifications(): Promise<
   } catch (error) {
     console.error("[Notifications] Failed to get scheduled notifications:", error);
     return [];
+  }
+}
+
+/**
+ * Compiles all potential notification triggers, sorts them chronologically (soonest first),
+ * and schedules the top 48 triggers with the OS.
+ */
+export async function syncAllNotifications(
+  documents: ZentraDocument[],
+  settings: NotificationSettings,
+): Promise<void> {
+  try {
+    // 1. Cancel all currently scheduled notifications to avoid duplicates and orphans
+    await cancelAllNotifications();
+
+    // 2. If notifications are globally disabled, stop here
+    if (!settings.globalEnabled) {
+      console.log("[Notifications] Global notifications are disabled. Queue cleared.");
+      return;
+    }
+
+    // Ensure the notification channel is created on Android
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("zentra-alerts", {
+        name: "Zentra Expiry Alerts",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#4F46E5",
+      });
+    }
+
+    // 3. Compile all future triggers
+    const now = Date.now();
+    const [hoursStr, minutesStr] = (settings.reminderTime || "09:00").split(":");
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+
+    interface NotificationTrigger {
+      doc: ZentraDocument;
+      daysBeforeExpiry: number;
+      triggerDate: Date;
+    }
+
+    const triggers: NotificationTrigger[] = [];
+
+    for (const doc of documents) {
+      // Skip soft-deleted documents or those with notifications disabled
+      if (doc.isDeleted || !doc.notificationsEnabled) {
+        continue;
+      }
+
+      const expiryDate = parseISO(doc.expiryDate);
+
+      // Use the global advanceNoticeDays
+      for (const daysBeforeExpiry of settings.advanceNoticeDays) {
+        const triggerDate = subDays(expiryDate, daysBeforeExpiry);
+        triggerDate.setHours(hours, minutes, 0, 0);
+
+        // Only schedule if the trigger is in the future
+        if (triggerDate.getTime() > now) {
+          triggers.push({
+            doc,
+            daysBeforeExpiry,
+            triggerDate,
+          });
+        }
+      }
+    }
+
+    // 4. Sort chronologically (soonest first)
+    triggers.sort((a, b) => a.triggerDate.getTime() - b.triggerDate.getTime());
+
+    // 5. Truncate to top 48 triggers to prevent hitting OS queue limits
+    const slicedTriggers = triggers.slice(0, 48);
+
+    if (slicedTriggers.length === 0) {
+      console.log("[Notifications] No future notifications to schedule.");
+      return;
+    }
+
+    // 6. Check permissions
+    let hasPerm = await hasPermission();
+    if (!hasPerm) {
+      hasPerm = await requestPermissions();
+    }
+    if (!hasPerm) {
+      console.warn("[Notifications] Cannot schedule: notification permissions not granted.");
+      return;
+    }
+
+    console.log(`[Notifications] Scheduling ${slicedTriggers.length} of ${triggers.length} total triggers`);
+
+    // 7. Schedule with the OS
+    for (const trigger of slicedTriggers) {
+      const { doc, daysBeforeExpiry, triggerDate } = trigger;
+      const identifier = `${doc.id}-${daysBeforeExpiry}d`;
+
+      await Notifications.scheduleNotificationAsync({
+        identifier,
+        content: {
+          title: `📄 ${doc.name} expiring soon`,
+          body: `Your document expires in ${daysBeforeExpiry} days. Tap to review.`,
+          data: { documentId: doc.id },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: triggerDate,
+          channelId: "zentra-alerts",
+        },
+      });
+    }
+  } catch (error) {
+    console.error("[Notifications] Failed to sync notifications queue:", error);
   }
 }

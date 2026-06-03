@@ -10,7 +10,6 @@ import { useRouter } from "expo-router";
 import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import ExpiryBadge from "@/components/ExpiryBadge";
-import { cancelDocumentNotifications } from "@/lib/notifications";
 import ScalePressable from "@/components/ScalePressable";
 import React, { useMemo, useState } from "react";
 import { seedMockData } from "@/lib/seed";
@@ -307,15 +306,12 @@ export default function HomeScreen() {
     try {
       const docIds = Array.from(selectedDocumentIds);
 
-      // 1. Cancel notifications for each selected document
-      await Promise.all(docIds.map((id) => cancelDocumentNotifications(id)));
-
-      // 2. Call store actions
+      // 1. Call store actions (which handles notification cancellation)
       if (docIds.length > 0) {
-        deleteMultipleDocuments(docIds);
+        await deleteMultipleDocuments(docIds);
       }
 
-      // 3. Update accessibility announcements and state
+      // 2. Update accessibility announcements and state
       AccessibilityInfo.announceForAccessibility(`Deleted ${docIds.length} documents`);
     } catch (error) {
       console.error("Bulk delete failed:", error);
@@ -332,8 +328,7 @@ export default function HomeScreen() {
 
   const handleConfirmDelete = async () => {
     if (!docToDelete) return;
-    await cancelDocumentNotifications(docToDelete.id);
-    deleteDocument(docToDelete.id);
+    await deleteDocument(docToDelete.id);
     AccessibilityInfo.announceForAccessibility("Document deleted");
     setDocToDelete(null);
   };
