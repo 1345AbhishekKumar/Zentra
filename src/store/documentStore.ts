@@ -1,8 +1,6 @@
 import { filterUpcoming, sortByExpiry } from "@/lib/date";
-import {
-  cancelDocumentNotifications,
-  scheduleDocumentNotifications,
-} from "@/lib/notifications";
+import { syncAllNotifications } from "@/lib/notifications";
+import { saveFilePermanently } from "@/lib/share";
 import { LocalUser, NotificationSettings, ZentraDocument } from "@/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
@@ -23,19 +21,19 @@ interface DocumentStore {
   // Actions
   setUser: (user: LocalUser | null) => void;
   setHasHydrated: (state: boolean) => void;
-  addDocument: (doc: ZentraDocument) => void;
-  updateDocument: (id: string, updates: Partial<ZentraDocument>) => void;
-  deleteDocument: (id: string) => void;
-  deleteMultipleDocuments: (ids: string[]) => void;
-  restoreDocument: (id: string) => void;
-  permanentlyDeleteDocument: (id: string) => void;
-  purgeExpiredTrash: () => void;
+  addDocument: (doc: ZentraDocument) => Promise<void>;
+  updateDocument: (id: string, updates: Partial<ZentraDocument>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  deleteMultipleDocuments: (ids: string[]) => Promise<void>;
+  restoreDocument: (id: string) => Promise<void>;
+  permanentlyDeleteDocument: (id: string) => Promise<void>;
+  purgeExpiredTrash: () => Promise<void>;
   toggleFavorite: (id: string) => void;
-  toggleNotification: (id: string) => void;
-  updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
+  toggleNotification: (id: string) => Promise<void>;
+  updateNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
   recomputeUpcoming: () => void;
-  clearAllData: () => void;
-  seedStore: (documents: ZentraDocument[], folders: string[]) => void;
+  clearAllData: () => Promise<void>;
+  seedStore: (documents: ZentraDocument[], folders: string[]) => Promise<void>;
   addFolder: (name: string) => boolean;
   renameFolder: (oldName: string, newName: string) => boolean;
   deleteFolder: (name: string) => void;
@@ -86,8 +84,16 @@ export const useDocumentStore = create<DocumentStore>()(
         });
       },
 
-      addDocument: (doc) => {
+      addDocument: async (doc) => {
         try {
+          // 1. Save file permanently if there is an attachment
+          if (doc.localUri) {
+            const permanentUri = await saveFilePermanently(doc.localUri, doc.name);
+            if (permanentUri) {
+              doc.localUri = permanentUri;
+            }
+          }
+
           set((state) => {
             const updatedDocs = [...state.documents, doc];
             return {
@@ -95,25 +101,58 @@ export const useDocumentStore = create<DocumentStore>()(
               upcomingExpirations: computeUpcoming(updatedDocs),
             };
           });
+
+          // 2. Sync all notifications
+          const { documents, notificationSettings } = get();
+          await syncAllNotifications(documents, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to add document:", error);
         }
       },
 
-      updateDocument: (id, updates) => {
+      updateDocument: async (id, updates) => {
         try {
           const { documents, notificationSettings, readAlerts = [] } = get();
           const existingDoc = documents.find((doc) => doc.id === id);
+          if (!existingDoc) return;
+
+          // 1. Manage file attachments if they changed
+          let updatedLocalUri = existingDoc.localUri;
+          if ("localUri" in updates) {
+            if (updates.localUri && updates.localUri !== existingDoc.localUri) {
+              const permanentUri = await saveFilePermanently(updates.localUri, updates.name || existingDoc.name);
+              if (permanentUri) {
+                updatedLocalUri = permanentUri;
+              }
+            } else if (!updates.localUri) {
+              updatedLocalUri = undefined;
+            }
+          }
+
+          // Clean up old file if it was replaced or removed
+          if (existingDoc.localUri && existingDoc.localUri !== updatedLocalUri) {
+            try {
+              const FileSystem = await import("expo-file-system/legacy");
+              const permanentDirectory = FileSystem.documentDirectory;
+              if (permanentDirectory && existingDoc.localUri.startsWith(permanentDirectory)) {
+                await FileSystem.deleteAsync(existingDoc.localUri, { idempotent: true });
+                console.log("[DocumentStore] Deleted old permanent file:", existingDoc.localUri);
+              }
+            } catch (e) {
+              console.warn("Failed to delete old local file:", e);
+            }
+          }
+
           const updatedAt = new Date().toISOString();
           let updatedDoc: ZentraDocument | undefined;
 
           const updatedDocs = documents.map((doc) => {
             if (doc.id !== id) return doc;
-            updatedDoc = { ...doc, ...updates, updatedAt };
+            updatedDoc = { ...doc, ...updates, localUri: updatedLocalUri, updatedAt };
             return updatedDoc;
           });
 
-          const expiryDateChanged = existingDoc && updates.expiryDate && updates.expiryDate !== existingDoc.expiryDate;
+          const expiryDateChanged = updates.expiryDate && updates.expiryDate !== existingDoc.expiryDate;
           const updatedReadAlerts = expiryDateChanged
             ? readAlerts.filter((alertId) => alertId !== id)
             : readAlerts;
@@ -124,29 +163,14 @@ export const useDocumentStore = create<DocumentStore>()(
             readAlerts: updatedReadAlerts,
           });
 
-          if (
-            expiryDateChanged &&
-            (updatedDoc?.notificationsEnabled ??
-              existingDoc.notificationsEnabled) &&
-            notificationSettings.globalEnabled
-          ) {
-            void (async () => {
-              await cancelDocumentNotifications(existingDoc.id);
-              if (updatedDoc) {
-                await scheduleDocumentNotifications(
-                  updatedDoc,
-                  notificationSettings.advanceNoticeDays,
-                  notificationSettings.reminderTime || "09:00",
-                );
-              }
-            })();
-          }
+          // 2. Sync all notifications
+          await syncAllNotifications(updatedDocs, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to update document:", error);
         }
       },
 
-      deleteDocument: (id) => {
+      deleteDocument: async (id) => {
         try {
           set((state) => {
             const updatedDocs = state.documents.map((doc) =>
@@ -164,12 +188,16 @@ export const useDocumentStore = create<DocumentStore>()(
               upcomingExpirations: computeUpcoming(updatedDocs),
             };
           });
+
+          // Sync all notifications
+          const { documents, notificationSettings } = get();
+          await syncAllNotifications(documents, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to delete document:", error);
         }
       },
 
-      deleteMultipleDocuments: (ids) => {
+      deleteMultipleDocuments: async (ids) => {
         try {
           set((state) => {
             const updatedDocs = state.documents.map((doc) =>
@@ -187,12 +215,16 @@ export const useDocumentStore = create<DocumentStore>()(
               upcomingExpirations: computeUpcoming(updatedDocs),
             };
           });
+
+          // Sync all notifications
+          const { documents, notificationSettings } = get();
+          await syncAllNotifications(documents, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to delete multiple documents:", error);
         }
       },
 
-      restoreDocument: (id) => {
+      restoreDocument: async (id) => {
         try {
           const { documents, notificationSettings } = get();
           const doc = documents.find((d) => d.id === id);
@@ -214,47 +246,28 @@ export const useDocumentStore = create<DocumentStore>()(
             upcomingExpirations: computeUpcoming(updatedDocs),
           });
 
-          // Reschedule notifications if notificationsEnabled was true
-          if (doc.notificationsEnabled && notificationSettings.globalEnabled) {
-            void (async () => {
-              try {
-                const updatedDoc = get().documents.find((d) => d.id === id);
-                if (updatedDoc) {
-                  await scheduleDocumentNotifications(
-                    updatedDoc,
-                    notificationSettings.advanceNoticeDays,
-                    notificationSettings.reminderTime || "09:00",
-                  );
-                }
-              } catch (err) {
-                console.error("Failed to reschedule notifications on restore:", err);
-              }
-            })();
-          }
+          // Sync all notifications
+          await syncAllNotifications(updatedDocs, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to restore document:", error);
         }
       },
 
-      permanentlyDeleteDocument: (id) => {
+      permanentlyDeleteDocument: async (id) => {
         try {
           const doc = get().documents.find((d) => d.id === id);
           if (doc) {
-            // 1. Cancel notifications
-            void cancelDocumentNotifications(id);
-            // 2. Delete file
+            // Delete file
             if (doc.localUri) {
-              void (async () => {
-                try {
-                  const FileSystem = await import("expo-file-system/legacy");
-                  const permanentDirectory = FileSystem.documentDirectory;
-                  if (permanentDirectory && doc.localUri && doc.localUri.startsWith(permanentDirectory)) {
-                    await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
-                  }
-                } catch (err) {
-                  console.warn("Failed to delete file for permanently deleted document:", err);
+              try {
+                const FileSystem = await import("expo-file-system/legacy");
+                const permanentDirectory = FileSystem.documentDirectory;
+                if (permanentDirectory && doc.localUri && doc.localUri.startsWith(permanentDirectory)) {
+                  await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
                 }
-              })();
+              } catch (err) {
+                console.warn("Failed to delete file for permanently deleted document:", err);
+              }
             }
           }
           set((state) => {
@@ -266,12 +279,16 @@ export const useDocumentStore = create<DocumentStore>()(
               readAlerts: readAlerts.filter((alertId) => alertId !== id),
             };
           });
+
+          // Sync all notifications
+          const { documents, notificationSettings } = get();
+          await syncAllNotifications(documents, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to permanently delete document:", error);
         }
       },
 
-      purgeExpiredTrash: () => {
+      purgeExpiredTrash: async () => {
         try {
           const { documents } = get();
           const thirtyDaysAgo = new Date();
@@ -286,34 +303,25 @@ export const useDocumentStore = create<DocumentStore>()(
 
           if (toPurge.length === 0) return;
 
-          // Perform purge asynchronously
-          void (async () => {
-            for (const doc of toPurge) {
-              // Cancel notifications
+          // Perform file deletions
+          for (const doc of toPurge) {
+            if (doc.localUri) {
               try {
-                await cancelDocumentNotifications(doc.id);
-              } catch (e) {
-                console.warn("Failed to cancel notifications for purged doc:", e);
-              }
-
-              // Delete file
-              if (doc.localUri) {
-                try {
-                  const FileSystem = await import("expo-file-system/legacy");
-                  const permanentDirectory = FileSystem.documentDirectory;
-                  if (permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
-                    await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
-                  }
-                } catch (e) {
-                  console.warn("Failed to delete file for purged doc:", e);
+                const FileSystem = await import("expo-file-system/legacy");
+                const permanentDirectory = FileSystem.documentDirectory;
+                if (permanentDirectory && doc.localUri.startsWith(permanentDirectory)) {
+                  await FileSystem.deleteAsync(doc.localUri, { idempotent: true });
                 }
+              } catch (e) {
+                console.warn("Failed to delete file for purged doc:", e);
               }
             }
-          })();
+          }
 
           const purgeIds = toPurge.map((d) => d.id);
+          let updatedDocs: ZentraDocument[] = [];
           set((state) => {
-            const updatedDocs = state.documents.filter((d) => !purgeIds.includes(d.id));
+            updatedDocs = state.documents.filter((d) => !purgeIds.includes(d.id));
             const readAlerts = state.readAlerts || [];
             return {
               documents: updatedDocs,
@@ -321,6 +329,10 @@ export const useDocumentStore = create<DocumentStore>()(
               readAlerts: readAlerts.filter((alertId) => !purgeIds.includes(alertId)),
             };
           });
+
+          // Sync all notifications
+          const { notificationSettings } = get();
+          await syncAllNotifications(updatedDocs, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to purge expired trash:", error);
         }
@@ -344,31 +356,48 @@ export const useDocumentStore = create<DocumentStore>()(
         });
       },
 
-      toggleNotification: (id) => {
-        set((state) => {
-          const updatedDocs = state.documents.map((doc) =>
-            doc.id === id
+      toggleNotification: async (id) => {
+        try {
+          const { documents, notificationSettings } = get();
+          const doc = documents.find((d) => d.id === id);
+          if (!doc) return;
+
+          const updatedNotificationsEnabled = !doc.notificationsEnabled;
+          const updatedAt = new Date().toISOString();
+
+          const updatedDocs = documents.map((d) =>
+            d.id === id
               ? {
-                  ...doc,
-                  notificationsEnabled: !doc.notificationsEnabled,
-                  updatedAt: new Date().toISOString(),
+                  ...d,
+                  notificationsEnabled: updatedNotificationsEnabled,
+                  updatedAt,
                 }
-              : doc,
+              : d,
           );
-          return {
+
+          set({
             documents: updatedDocs,
             upcomingExpirations: computeUpcoming(updatedDocs),
-          };
-        });
+          });
+
+          // Sync all notifications
+          await syncAllNotifications(updatedDocs, notificationSettings);
+        } catch (error) {
+          console.error("[DocumentStore] Failed to toggle notification:", error);
+        }
       },
 
-      updateNotificationSettings: (settings) => {
+      updateNotificationSettings: async (settings) => {
         set((state) => ({
           notificationSettings: {
             ...state.notificationSettings,
             ...settings,
           },
         }));
+
+        // Sync all notifications
+        const { documents, notificationSettings } = get();
+        await syncAllNotifications(documents, notificationSettings);
       },
 
       recomputeUpcoming: () => {
@@ -376,16 +405,18 @@ export const useDocumentStore = create<DocumentStore>()(
           upcomingExpirations: computeUpcoming(state.documents),
         }));
       },
-      clearAllData: () => {
+      clearAllData: async () => {
         set({
           documents: [],
           upcomingExpirations: [],
           folders: [...DEFAULT_FOLDERS],
           readAlerts: [],
         });
+        const { cancelAllNotifications } = await import("@/lib/notifications");
+        await cancelAllNotifications();
       },
 
-      seedStore: (seededDocs, seededFolders) => {
+      seedStore: async (seededDocs, seededFolders) => {
         try {
           console.log(`[Zentra Debug] seedStore action called with ${seededDocs.length} docs`);
           set((state) => {
@@ -416,6 +447,10 @@ export const useDocumentStore = create<DocumentStore>()(
               readAlerts: updatedReadAlerts,
             };
           });
+
+          // Sync all notifications
+          const { documents, notificationSettings } = get();
+          await syncAllNotifications(documents, notificationSettings);
         } catch (error) {
           console.error("[DocumentStore] Failed to seed store:", error);
         }
@@ -544,6 +579,12 @@ export const useDocumentStore = create<DocumentStore>()(
                   });
                 }
               }
+
+              // Sync all notifications on hydration
+              void syncAllNotifications(
+                useDocumentStore.getState().documents,
+                useDocumentStore.getState().notificationSettings
+              );
             }
             state.setHasHydrated(true);
           }

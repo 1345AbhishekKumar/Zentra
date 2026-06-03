@@ -109,4 +109,61 @@ The causes were:
 - **TypeScript**: `bunx tsc --noEmit` compiler checks passed with 0 errors.
 - **ESLint**: `bun run lint` successfully verified with 0 errors.
 
+---
+
+# Report: Expiry Calendar Screen
+
+## Problem Overview
+Implement a Calendar View screen to replace the placeholder "Collections" tab. The screen must display a visual month/year grid showing document expiry events as dots/markers, providing a visual timeline of what is expiring when, and allowing interactive day filtering.
+
+## Solution Architecture
+1. **Routing and Layout Update**: Renamed the placeholder tab file `collections.tsx` to `calendar.tsx` and modified `_layout.tsx` to mount it with the title `"Calendar"` and a `"calendar"` Feather icon.
+2. **Date Calculations & Grid Rendering**: Implemented month-by-month grid calculations natively using `date-fns` functions (e.g., `startOfMonth`, `endOfMonth`, `eachDayOfInterval`, `isSameMonth`, etc.), avoiding heavy third-party calendar packages and preserving full local timezone and leap year safety.
+3. **Urgency-based Event Dots**: Built local document store querying to check for expiries on each day of the grid. Placed colored dot markers under each date matching the highest expiry urgency of documents expiring on that date:
+   - Red dot: Expired or critical (<= 7 days from today).
+   - Orange dot: Warning (<= 30 days from today).
+   - Green dot: Safe (> 30 days from today).
+4. **Interactive Filters & Deep-Linking**:
+   - Tapping on a date filters the document list below the calendar to show only documents expiring on that day.
+   - A "View Month" shortcut lets the user instantly view all documents expiring in the selected month, sorted chronologically.
+   - A "Today" header button snaps the calendar and selection back to the current day.
+   - Populated the matching expiries in a list using the polished `<DocumentCard>` component, allowing users to deep-link directly to document details when tapped.
+
+## Files Modified & Created
+- **Renamed & Rewritten Screen**:
+  - [calendar.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/(tabs)/calendar.tsx)
+- **Modified Layout**:
+  - [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/(tabs)/_layout.tsx)
+
+## Verification
+- **TypeScript**: `bunx tsc --noEmit` compiler checks passed with 0 errors.
+- **ESLint**: `bun run lint` successfully verified with 0 errors/warnings on the new calendar view module.
+
+---
+
+# Report: Consolidate File Sharing & Exporter Operations
+
+## Problem Overview
+Low-level filesystem operations, platform-conditional logic, and native sharing/downloading wrappers were repeated across presentation screen components ([id.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/document/[id].tsx) and [export-data.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/export-data.tsx)), leaking implementation side-effects into the UI layer.
+
+## Solution Architecture
+1. **Deepened Sharing Module**: Refactored [share.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/share.ts) into a deep, platform-agnostic sharing coordinator.
+2. **Encapsulated Sharing Logic**: Consolidated native `expo-sharing` triggers, React Native `Share` fallbacks, base64 conversions, and web anchor downloads into unified helper functions:
+   - `shareText(title, message)`
+   - `shareFile(uri, filename, fileType)`
+   - `shareDocumentDetailsHtml(doc)`
+   - `downloadDocument(doc)`
+3. **Encapsulated Export Backup**: Created a single `exportBackup(documents, notificationSettings, appVersion)` action that handles JSON serialization, temp cache creation, native/web sharing, and automated file cleanup.
+4. **Presentation Cleanup**: Simplified [id.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/document/[id].tsx) and [export-data.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/export-data.tsx) by removing native dependencies (`expo-sharing`, `expo-file-system`) and replacing large blocks of procedural logic with two-line utility calls.
+
+## Files Modified
+- [share.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/share.ts)
+- [id.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/document/[id].tsx)
+- [export-data.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/export-data.tsx)
+
+## Verification
+- **TypeScript**: `bunx tsc --noEmit` completed successfully with 0 errors.
+- **ESLint**: `bun run lint` completed successfully, verifying that all modified files are completely warning-free.
+
+
 

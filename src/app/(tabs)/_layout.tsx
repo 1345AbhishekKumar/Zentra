@@ -51,11 +51,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="collections"
+        name="calendar"
         options={{
-          title: "Collections",
+          title: "Calendar",
           tabBarIcon: ({ color }) => (
-            <Feather name="grid" size={24} color={color} />
+            <Feather name="calendar" size={24} color={color} />
           ),
         }}
       />

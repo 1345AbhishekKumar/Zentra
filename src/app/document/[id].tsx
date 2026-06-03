@@ -5,48 +5,25 @@ import NotificationToggle from "@/components/NotificationToggle";
 import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { formatDate } from "@/lib/date";
-import {
-  cancelDocumentNotifications,
-  scheduleDocumentNotifications,
-} from "@/lib/notifications";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { useUser } from "@clerk/expo";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
-import type * as SharingType from "expo-sharing";
-import { buildDocumentSummary, mimeTypeFor, generateShareHtml } from "@/lib/share";
+import { buildDocumentSummary, shareText, shareFile, shareDocumentDetailsHtml, downloadDocument } from "@/lib/share";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     AccessibilityInfo,
     Alert,
-    Platform,
     Pressable,
     ScrollView,
-    Share,
     StyleSheet,
     Text,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const getSharingModule = (): typeof SharingType | null => {
-  if (Platform.OS === "web") {
-    return null;
-  }
-  try {
-    const { requireOptionalNativeModule } = require("expo-modules-core");
-    const isAvailable = !!requireOptionalNativeModule("ExpoSharing");
-    if (isAvailable) {
-      return require("expo-sharing");
-    }
-  } catch {
-    // Native module not available
-  }
-  return null;
-};
 
 type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
 
@@ -109,7 +86,6 @@ export default function DocumentDetailsScreen() {
     toggleFavorite,
     deleteDocument,
     toggleNotification,
-    notificationSettings,
     folders,
     updateDocument,
   } = useDocumentStore();
@@ -192,191 +168,19 @@ export default function DocumentDetailsScreen() {
 
   const shareTextOnly = async () => {
     setIsShareSheetVisible(false);
-    try {
-      const summary = buildDocumentSummary(doc);
-      if (Platform.OS === "web") {
-        if (navigator.share) {
-          await navigator.share({
-            title: doc.name,
-            text: summary,
-          });
-        } else {
-          Alert.alert("Sharing Not Supported", "Your browser does not support sharing.");
-        }
-        return;
-      }
-      await Share.share({
-        title: doc.name,
-        message: summary,
-      });
-    } catch (error) {
-      console.error("Text sharing failed:", error);
-    }
+    const summary = buildDocumentSummary(doc);
+    await shareText(doc.name, summary);
   };
 
   const shareFileOnly = async () => {
     setIsShareSheetVisible(false);
     if (!doc.localUri) return;
-    try {
-      const fileInfo = await FileSystem.getInfoAsync(doc.localUri);
-      if (!fileInfo.exists) {
-        Alert.alert("File Not Found", "The attached file could not be found.");
-        return;
-      }
-
-      if (Platform.OS === "web") {
-        Alert.alert("Not Supported", "Web sharing of files is not fully supported in this environment.");
-        return;
-      }
-
-      const Sharing = getSharingModule();
-      const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-      if (Sharing && isSharingAvailable) {
-        await Sharing.shareAsync(doc.localUri, {
-          mimeType: mimeTypeFor(doc.fileType, doc.localUri),
-          dialogTitle: doc.name,
-        });
-      } else {
-        // Fallback to React Native Share API
-        if (Platform.OS === "ios") {
-          await Share.share({
-            url: doc.localUri,
-          });
-        } else {
-          const summary = buildDocumentSummary(doc);
-          Alert.alert(
-            "File Sharing Unavailable",
-            "Sharing raw files is not supported on this environment/device. Would you like to share the document details as text instead?",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Share Text",
-                onPress: async () => {
-                  try {
-                    await Share.share({
-                      title: doc.name,
-                      message: summary,
-                    });
-                  } catch (err) {
-                    console.error("RN Share fallback failed:", err);
-                  }
-                },
-              },
-            ]
-          );
-        }
-      }
-    } catch (error) {
-      console.error("File sharing failed:", error);
-    }
+    await shareFile(doc.localUri, doc.name, doc.fileType);
   };
 
   const shareDetailsWithImageHtml = async () => {
     setIsShareSheetVisible(false);
-    if (!doc.localUri) return;
-    try {
-      const fileInfo = await FileSystem.getInfoAsync(doc.localUri);
-      if (!fileInfo.exists) {
-        Alert.alert("File Not Found", "The attached file could not be found.");
-        return;
-      }
-
-      const Sharing = getSharingModule();
-      const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-
-      if (!isSharingAvailable) {
-        const summary = buildDocumentSummary(doc);
-        if (Platform.OS === "ios") {
-          // On iOS, try to write HTML and share via RN Share (since iOS Share supports file URLs)
-          try {
-            const base64Data = await FileSystem.readAsStringAsync(doc.localUri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            const htmlContent = generateShareHtml(doc, base64Data);
-            const tempUri = FileSystem.cacheDirectory + `${doc.name.replace(/\.[^/.]+$/, "")}_details.html`;
-            await FileSystem.writeAsStringAsync(tempUri, htmlContent);
-
-            await Share.share({
-              url: tempUri,
-            });
-
-            try {
-              await FileSystem.deleteAsync(tempUri, { idempotent: true });
-            } catch (err) {
-              console.warn("Failed to delete temp HTML share file:", err);
-            }
-          } catch (error) {
-            console.error("RN Share fallback for HTML on iOS failed:", error);
-            await Share.share({
-              title: doc.name,
-              message: summary,
-            });
-          }
-        } else {
-          // On Android / Web, fallback to sharing text summary directly
-          Alert.alert(
-            "Rich Sharing Unavailable",
-            "HTML/Image sharing is not supported in this environment/device. Would you like to share the document details as text instead?",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Share Text",
-                onPress: async () => {
-                  try {
-                    await Share.share({
-                      title: doc.name,
-                      message: summary,
-                    });
-                  } catch (err) {
-                    console.error("RN Share fallback failed:", err);
-                  }
-                },
-              },
-            ]
-          );
-        }
-        return;
-      }
-
-      // Read image as base64
-      const base64Data = await FileSystem.readAsStringAsync(doc.localUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const htmlContent = generateShareHtml(doc, base64Data);
-
-      if (Platform.OS === "web") {
-        // Web - Download the HTML file
-        const element = document.createElement("a");
-        const file = new Blob([htmlContent], { type: "text/html" });
-        element.href = URL.createObjectURL(file);
-        element.download = `${doc.name.replace(/\.[^/.]+$/, "")}_details.html`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-        return;
-      }
-
-      // Native - write to temp HTML file
-      const tempUri = FileSystem.cacheDirectory + `${doc.name.replace(/\.[^/.]+$/, "")}_details.html`;
-      await FileSystem.writeAsStringAsync(tempUri, htmlContent);
-
-      if (Sharing) {
-        await Sharing.shareAsync(tempUri, {
-          mimeType: "text/html",
-          dialogTitle: `${doc.name} Details`,
-        });
-      }
-
-      // Clean up temp file (fire-and-forget)
-      try {
-        await FileSystem.deleteAsync(tempUri, { idempotent: true });
-      } catch (err) {
-        console.warn("Failed to delete temp HTML share file:", err);
-      }
-    } catch (error) {
-      console.error("HTML sharing failed:", error);
-      Alert.alert("Error", "Failed to generate document export.");
-    }
+    await shareDocumentDetailsHtml(doc);
   };
 
   const handleSharePress = () => {
@@ -388,127 +192,7 @@ export default function DocumentDetailsScreen() {
   };
 
   const handleDownload = async () => {
-    try {
-      if (Platform.OS === "web") {
-        if (doc.localUri) {
-          const element = document.createElement("a");
-          element.href = doc.localUri;
-          element.download = doc.name;
-          document.body.appendChild(element);
-          element.click();
-          document.body.removeChild(element);
-        } else {
-          const summary = buildDocumentSummary(doc);
-          const element = document.createElement("a");
-          const file = new Blob([summary], { type: "text/plain" });
-          element.href = URL.createObjectURL(file);
-          element.download = `${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`;
-          document.body.appendChild(element);
-          element.click();
-          document.body.removeChild(element);
-        }
-        Alert.alert("Success", "Document downloaded successfully!");
-        return;
-      }
-
-      // Android download using SAF
-      if (Platform.OS === "android") {
-        try {
-          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-          if (!permissions.granted) {
-            Alert.alert("Permission Denied", "Cannot save file without folder permissions.");
-            return;
-          }
-
-          let fileUri = doc.localUri;
-          let mimeType = doc.localUri ? mimeTypeFor(doc.fileType, doc.localUri) : "text/plain";
-          let fileName = doc.name;
-
-          if (!fileUri) {
-            const summary = buildDocumentSummary(doc);
-            const tempUri = FileSystem.cacheDirectory + `zentra_download_${Date.now()}.txt`;
-            await FileSystem.writeAsStringAsync(tempUri, summary);
-            fileUri = tempUri;
-            fileName = `${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`;
-          }
-
-          const fileContent = await FileSystem.readAsStringAsync(fileUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          const createdFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
-            permissions.directoryUri,
-            fileName,
-            mimeType
-          );
-
-          await FileSystem.writeAsStringAsync(createdFileUri, fileContent, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          if (!doc.localUri) {
-            try {
-              await FileSystem.deleteAsync(fileUri, { idempotent: true });
-            } catch (err) {
-              console.warn("Failed to delete temp download file:", err);
-            }
-          }
-
-          Alert.alert("Success", "Document saved to your selected folder.");
-        } catch (error) {
-          console.error("Android download failed:", error);
-          const Sharing = getSharingModule();
-          if (doc.localUri && Sharing) {
-            await Sharing.shareAsync(doc.localUri);
-          } else {
-            Alert.alert("Error", "Failed to download document.");
-          }
-        }
-      } else {
-        // iOS download using share sheet / save to files
-        const Sharing = getSharingModule();
-        const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-
-        if (Sharing && isSharingAvailable) {
-          if (doc.localUri) {
-            await Sharing.shareAsync(doc.localUri, { UTI: "public.item" });
-          } else {
-            const summary = buildDocumentSummary(doc);
-            const tempUri = FileSystem.cacheDirectory + `${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`;
-            await FileSystem.writeAsStringAsync(tempUri, summary);
-
-            await Sharing.shareAsync(tempUri, { UTI: "public.text" });
-
-            try {
-              await FileSystem.deleteAsync(tempUri, { idempotent: true });
-            } catch (err) {
-              console.warn("Failed to delete temp download file:", err);
-            }
-          }
-        } else {
-          // Fallback to React Native's Share API on iOS
-          try {
-            if (doc.localUri) {
-              await Share.share({
-                url: doc.localUri,
-              });
-            } else {
-              const summary = buildDocumentSummary(doc);
-              await Share.share({
-                title: doc.name,
-                message: summary,
-              });
-            }
-          } catch (error) {
-            console.error("RN Share fallback for iOS download failed:", error);
-            Alert.alert("Error", "Save/Share is not available on this device.");
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to download document:", error);
-      Alert.alert("Error", "Failed to download document.");
-    }
+    await downloadDocument(doc);
   };
 
   const handleMove = () => {
@@ -520,8 +204,7 @@ export default function DocumentDetailsScreen() {
   };
 
   const handleConfirmDelete = async () => {
-    await cancelDocumentNotifications(doc.id);
-    deleteDocument(doc.id);
+    await deleteDocument(doc.id);
     AccessibilityInfo.announceForAccessibility("Document deleted");
     goBack();
   };
@@ -664,19 +347,8 @@ export default function DocumentDetailsScreen() {
               <NotificationToggle
                 documentId={doc.id}
                 enabled={doc.notificationsEnabled}
-                onToggle={async (enabled) => {
-                  toggleNotification(doc.id);
-                  if (enabled) {
-                    if (notificationSettings.globalEnabled) {
-                      await scheduleDocumentNotifications(
-                        { ...doc, notificationsEnabled: true },
-                        notificationSettings.advanceNoticeDays,
-                        notificationSettings.reminderTime || "09:00",
-                      );
-                    }
-                  } else {
-                    await cancelDocumentNotifications(doc.id);
-                  }
+                onToggle={async () => {
+                  await toggleNotification(doc.id);
                 }}
                 label="Notifications"
                 icon="bell"
