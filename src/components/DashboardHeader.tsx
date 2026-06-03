@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useUser } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { useRouter } from "expo-router";
 import { expiryUrgency } from "@/lib/date";
+import ScalePressable from "./ScalePressable";
 
 export default function DashboardHeader() {
   const { user } = useUser();
@@ -35,7 +36,7 @@ export default function DashboardHeader() {
           Zentra
         </Text>
 
-        <Pressable
+        <ScalePressable
           onPress={() => router.push("/alerts")}
           className="relative w-11 h-11 rounded-full items-center justify-center active:bg-soft-accent"
           accessibilityLabel="Open expiry alerts"
@@ -47,7 +48,7 @@ export default function DashboardHeader() {
               className="absolute top-1 right-1 w-3 h-3 bg-danger rounded-full border border-white"
             />
           )}
-        </Pressable>
+        </ScalePressable>
       </View>
 
       {/* Greeting */}

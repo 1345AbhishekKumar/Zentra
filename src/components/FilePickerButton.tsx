@@ -3,7 +3,8 @@ import { DocumentFileType } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import React from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Text, View } from "react-native";
+import ScalePressable from "./ScalePressable";
 
 export interface PickedFile {
   uri: string;
@@ -382,16 +383,15 @@ export default function FilePickerButton({
               </Text>
             </View>
           </View>
-          <Pressable
+          <ScalePressable
             onPress={handleRemove}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel="Remove attached file"
             className="w-8 h-8 rounded-full items-center justify-center bg-background active:bg-border/40"
-            style={({ pressed }) => [pressed && styles.pressedScale]}
           >
             <Feather name="x" size={18} color={colors.secondary} />
-          </Pressable>
+          </ScalePressable>
         </View>
       </View>
     );
@@ -403,12 +403,11 @@ export default function FilePickerButton({
       <Text className="text-body-md text-primary font-semibold mb-2">
         Attachment <Text className="text-secondary font-normal text-body-sm">(Optional)</Text>
       </Text>
-      <Pressable
+      <ScalePressable
         onPress={showAttachmentMenu}
         accessibilityRole="button"
         accessibilityLabel="Attach a file"
         className="w-full border-2 border-dashed border-border/80 bg-surface rounded-xl p-6 items-center justify-center active:opacity-90"
-        style={({ pressed }) => [pressed && styles.pressedScale]}
       >
         <Feather name="paperclip" size={24} color={colors.secondary} />
         <Text className="text-body-md text-primary font-semibold mt-2">
@@ -417,13 +416,8 @@ export default function FilePickerButton({
         <Text className="text-caption text-secondary mt-1">
           Support images, PDFs, docs
         </Text>
-      </Pressable>
+      </ScalePressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  pressedScale: {
-    transform: [{ scale: 0.98 }],
-  },
-});

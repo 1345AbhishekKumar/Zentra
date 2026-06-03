@@ -1,7 +1,8 @@
 import React from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
+import ScalePressable from "./ScalePressable";
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -61,17 +62,17 @@ export default function ConfirmationModal({
 
           {/* Action Buttons */}
           <View className="flex-row w-full gap-3">
-            <Pressable
+            <ScalePressable
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={cancelLabel}
               className="flex-1 bg-background border border-border py-3.5 rounded-xl items-center justify-center active:opacity-75 min-h-[48px]"
             >
-              <Text className="text-body-md font-bold text-primary font-display">
+              <Text className="text-body-md font-bold text-primary font-display font-semibold">
                 {cancelLabel}
               </Text>
-            </Pressable>
-            <Pressable
+            </ScalePressable>
+            <ScalePressable
               onPress={() => {
                 onClose();
                 // Brief delay to allow modal dismiss animations to finish cleanly
@@ -83,10 +84,10 @@ export default function ConfirmationModal({
               accessibilityLabel={confirmLabel}
               className={`flex-1 py-3.5 rounded-xl items-center justify-center active:opacity-85 min-h-[48px] ${confirmBtnBgClass}`}
             >
-              <Text className="text-body-md font-bold text-white font-display">
+              <Text className="text-body-md font-bold text-white font-display font-semibold">
                 {confirmLabel}
               </Text>
-            </Pressable>
+            </ScalePressable>
           </View>
         </View>
       </View>

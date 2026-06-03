@@ -11,7 +11,9 @@ import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import ExpiryBadge from "@/components/ExpiryBadge";
 import { cancelDocumentNotifications } from "@/lib/notifications";
+import ScalePressable from "@/components/ScalePressable";
 import React, { useMemo, useState } from "react";
+import { seedMockData } from "@/lib/seed";
 import {
   AccessibilityInfo,
   Alert,
@@ -137,17 +139,14 @@ function QuickAccessCard({
   const meta = `${doc.fileType.toUpperCase()} • ${doc.sizeLabel || "1.0 MB"}`;
 
   return (
-    <Pressable
+    <ScalePressable
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={200}
       accessibilityRole="button"
       accessibilityLabel={`Open ${doc.name}`}
       className="bg-surface rounded-2xl p-4 mr-3 active:opacity-90"
-      style={({ pressed }) => [
-        styles.quickCard,
-        pressed && styles.pressedScale,
-      ]}
+      style={styles.quickCard}
     >
       <View className="flex-row justify-between items-start mb-3">
         <View
@@ -170,7 +169,7 @@ function QuickAccessCard({
         {label}
       </Text>
       <Text className="text-caption text-secondary mt-1">{meta}</Text>
-    </Pressable>
+    </ScalePressable>
   );
 }
 
@@ -204,7 +203,7 @@ function RecentDocRow({
   const meta = `${formatAddedDate(doc.createdAt)} • ${doc.sizeLabel || "1.0 MB"}`;
 
   return (
-    <Pressable
+    <ScalePressable
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={200}
@@ -212,6 +211,7 @@ function RecentDocRow({
       accessibilityLabel={`Open ${doc.name}`}
       className="flex-row items-center px-4 py-3 active:bg-background"
       style={!isLast ? styles.rowBorder : undefined}
+      activeScale={0.98}
     >
       <View
         className="w-11 h-11 rounded-xl items-center justify-center"
@@ -251,7 +251,7 @@ function RecentDocRow({
           <Feather name="more-horizontal" size={20} color={colors.secondary} />
         </Pressable>
       )}
-    </Pressable>
+    </ScalePressable>
   );
 }
 
@@ -262,13 +262,19 @@ export default function HomeScreen() {
   const router = useRouter();
   const {
     documents,
-    addDocument,
     deleteDocument,
     deleteMultipleDocuments,
   } = useDocumentStore();
   const [selectedDoc, setSelectedDoc] = useState<ZentraDocument | null>(null);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [docToDelete, setDocToDelete] = useState<ZentraDocument | null>(null);
+
+  React.useEffect(() => {
+    console.log("[Zentra Debug] Store documents count:", documents.length);
+    const state = useDocumentStore.getState();
+    console.log("[Zentra Debug] Store folders:", state.folders);
+    console.log("[Zentra Debug] Store active documents:", documents.filter(d => !d.isDeleted).length);
+  }, [documents]);
 
   // Selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -359,101 +365,16 @@ export default function HomeScreen() {
   const canSeedDemo = __DEV__;
 
   // Seed demo data for verification
-  const seedDemoData = React.useCallback(() => {
+  const seedDemoData = React.useCallback(async () => {
     if (!canSeedDemo) return;
-    const now = Date.now();
-    const day = 24 * 60 * 60 * 1000;
-    const mocks: ZentraDocument[] = [
-      {
-        id: "demo-1",
-        name: "Driving License.pdf",
-        category: "Other",
-        fileType: "pdf",
-        sizeLabel: "2.4 MB",
-        expiryDate: "2027-05-15",
-        createdAt: new Date(now).toISOString(),
-        updatedAt: new Date(now).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-      {
-        id: "demo-2",
-        name: "Tax Return 2024.pdf",
-        category: "Finance",
-        fileType: "pdf",
-        sizeLabel: "1.8 MB",
-        expiryDate: "2026-10-31",
-        createdAt: new Date(now - day).toISOString(),
-        updatedAt: new Date(now - day).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-      {
-        id: "demo-3",
-        name: "Bank Statement.pdf",
-        category: "Finance",
-        fileType: "pdf",
-        sizeLabel: "2.1 MB",
-        expiryDate: "2026-08-20",
-        createdAt: new Date(now - 18 * day).toISOString(),
-        updatedAt: new Date(now - 18 * day).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-      {
-        id: "demo-4",
-        name: "Adhaar Card.png",
-        category: "Personal",
-        fileType: "image",
-        sizeLabel: "1.3 MB",
-        expiryDate: "2031-12-31",
-        createdAt: new Date(now - 20 * day).toISOString(),
-        updatedAt: new Date(now - 20 * day).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-      {
-        id: "demo-5",
-        name: "Passport.pdf",
-        category: "Personal",
-        fileType: "pdf",
-        sizeLabel: "2.4 MB",
-        expiryDate: "2032-04-12",
-        createdAt: new Date(now - 23 * day).toISOString(),
-        updatedAt: new Date(now - 23 * day).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-      {
-        id: "demo-6",
-        name: "Insurance.pdf",
-        category: "Finance",
-        fileType: "pdf",
-        sizeLabel: "1.8 MB",
-        expiryDate: "2026-11-20",
-        createdAt: new Date(now - 22 * day).toISOString(),
-        updatedAt: new Date(now - 22 * day).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-      {
-        id: "demo-7",
-        name: "Certificates.pdf",
-        category: "Work",
-        fileType: "pdf",
-        sizeLabel: "1.2 MB",
-        expiryDate: "2028-09-10",
-        createdAt: new Date(now - 21 * day).toISOString(),
-        updatedAt: new Date(now - 21 * day).toISOString(),
-        notificationsEnabled: true,
-        isFavorite: false,
-      },
-    ];
-
-    mocks.forEach((m) => {
-      if (!documents.some((d) => d.id === m.id)) addDocument(m);
-    });
-  }, [canSeedDemo, documents, addDocument]);
+    try {
+      await seedMockData();
+      AccessibilityInfo.announceForAccessibility("Demo documents loaded successfully");
+    } catch (err) {
+      console.warn("Failed to seed demo data:", err);
+      Alert.alert("Seeding Failed", "Could not load demo documents.");
+    }
+  }, [canSeedDemo]);
 
   // ------------------------------------------------------------------
   // Render
@@ -471,7 +392,7 @@ export default function HomeScreen() {
           </View>
 
           {/* Search bar */}
-          <Pressable
+          <ScalePressable
             onPress={() => {
               if (!isSelectionMode) {
                 router.push("/search" as any);
@@ -480,7 +401,6 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Search documents"
             className={`px-6 mb-6 active:opacity-90 ${isSelectionMode ? "opacity-40" : ""}`}
-            style={({ pressed }) => [pressed && !isSelectionMode && styles.pressedScale]}
             disabled={isSelectionMode}
           >
             <View className="flex-row items-center bg-surface rounded-full border border-border pl-4 pr-1.5 py-1.5 h-12">
@@ -495,7 +415,7 @@ export default function HomeScreen() {
                 <Feather name="search" size={15} color="#FFFFFF" />
               </View>
             </View>
-          </Pressable>
+          </ScalePressable>
 
           {sorted.length === 0 ? (
             // ---------------------------------------------------------------
@@ -511,16 +431,15 @@ export default function HomeScreen() {
               />
               {canSeedDemo && (
                 <View className="px-6 -mt-2">
-                  <Pressable
+                  <ScalePressable
                     onPress={seedDemoData}
                     accessibilityRole="button"
                     className="w-full h-[52px] bg-surface border border-border rounded-xl items-center justify-center active:bg-background"
-                    style={({ pressed }) => [pressed && styles.pressedScale]}
                   >
                     <Text className="text-button text-accent font-semibold">
                       Load Demo Documents
                     </Text>
-                  </Pressable>
+                  </ScalePressable>
                 </View>
               )}
             </View>
@@ -641,17 +560,15 @@ export default function HomeScreen() {
         {/* FAB */}
         {!isSelectionMode && (
           <View className="absolute bottom-5 right-6" style={styles.fabWrap}>
-            <Pressable
+            <ScalePressable
               onPress={() => router.push("/add-document" as never)}
               accessibilityRole="button"
               accessibilityLabel="Add new document"
               className="floating-action-button active:opacity-90"
-              style={({ pressed }) => [
-                pressed && { transform: [{ scale: 0.94 }] },
-              ]}
+              activeScale={0.94}
             >
               <Feather name="plus" size={26} color="#FFFFFF" />
-            </Pressable>
+            </ScalePressable>
           </View>
         )}
 

@@ -1,9 +1,8 @@
 import DocumentCard from "@/components/DocumentCard";
 import EmptyState from "@/components/EmptyState";
-import ExpiryBadge from "@/components/ExpiryBadge";
 import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { sortByExpiry, expiryUrgency } from "@/lib/date";
+import { sortByExpiry } from "@/lib/date";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { DocumentCategory } from "@/types";
@@ -11,11 +10,12 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { cancelDocumentNotifications } from "@/lib/notifications";
+import ScalePressable from "@/components/ScalePressable";
+import { seedMockData } from "@/lib/seed";
 import {
     AccessibilityInfo,
     Alert,
     Modal,
-    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -56,6 +56,7 @@ export default function DocumentsScreen() {
   const [folderModalMode, setFolderModalMode] = useState<"create" | "rename">("create");
   const [targetFolderName, setTargetFolderName] = useState("");
   const [folderInputName, setFolderInputName] = useState("");
+  const [isFolderInputFocused, setIsFolderInputFocused] = useState(false);
   const [selectedFolderOptions, setSelectedFolderOptions] = useState<string | null>(null);
   const [isDeleteFolderModalVisible, setIsDeleteFolderModalVisible] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
@@ -256,13 +257,36 @@ export default function DocumentsScreen() {
     const activeDocsCount = documents.filter((d) => !d.isDeleted).length;
     if (activeDocsCount === 0) {
       return (
-        <EmptyState
-          icon="document-text-outline"
-          title="Your vault is empty"
-          message="Start by adding a document"
-          actionLabel="Add Document"
-          onAction={() => router.push("/add-document" as never)}
-        />
+        <View className="px-6 pb-12">
+          <EmptyState
+            icon="document-text-outline"
+            title="Your vault is empty"
+            message="Start by adding a document"
+            actionLabel="Add Document"
+            onAction={() => router.push("/add-document" as never)}
+          />
+          {__DEV__ && (
+            <View className="px-6 -mt-2">
+              <ScalePressable
+                onPress={async () => {
+                  try {
+                    await seedMockData();
+                    AccessibilityInfo.announceForAccessibility("Demo documents loaded successfully");
+                  } catch (err) {
+                    console.warn("Failed to seed demo data:", err);
+                    Alert.alert("Seeding Failed", "Could not load demo documents.");
+                  }
+                }}
+                accessibilityRole="button"
+                className="w-full h-[52px] bg-surface border border-border rounded-xl items-center justify-center active:bg-background"
+              >
+                <Text className="text-button text-accent font-semibold">
+                  Load Demo Documents
+                </Text>
+              </ScalePressable>
+            </View>
+          )}
+        </View>
       );
     }
     if (selectedCategory) {
@@ -301,59 +325,36 @@ export default function DocumentsScreen() {
           <View className="flex-row justify-between items-center px-6 pt-6 mb-5">
             <Text className="text-h1 text-primary font-bold">Documents</Text>
             <View className="flex-row items-center gap-3">
-              <Pressable
-                onPress={() => {
-                  if (isSelectionMode) {
-                    handleExitSelection();
-                  } else {
-                    setIsSelectionMode(true);
-                  }
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={isSelectionMode ? "Cancel selection" : "Select items"}
-                className={`px-3 py-1.5 rounded-lg border border-border/40 min-h-9 justify-center ${
-                  isSelectionMode ? "bg-soft-accent border-accent/20" : "bg-surface"
-                }`}
-              >
-                <Text
-                  className={`text-body-md font-semibold ${
-                    isSelectionMode ? "text-accent" : "text-secondary"
-                  }`}
-                >
-                  {isSelectionMode ? "Cancel" : "Select"}
-                </Text>
-              </Pressable>
-
-              <Pressable
+              <ScalePressable
                 onPress={() => setViewMode("grid")}
                 accessibilityLabel="Grid view"
                 accessibilityRole="button"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                className={`w-9 h-9 items-center justify-center rounded-lg ${
+                className={`w-11 h-11 items-center justify-center rounded-xl ${
                   viewMode === "grid" ? "bg-soft-accent" : "bg-transparent"
                 }`}
               >
                 <Feather
                   name="grid"
                   size={20}
-                  color={viewMode === "grid" ? colors.accent : "#727272"}
+                  color={viewMode === "grid" ? colors.accent : colors.secondary}
                 />
-              </Pressable>
-              <Pressable
+              </ScalePressable>
+              <ScalePressable
                 onPress={() => setViewMode("list")}
                 accessibilityLabel="List view"
                 accessibilityRole="button"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                className={`w-9 h-9 items-center justify-center rounded-lg ${
+                className={`w-11 h-11 items-center justify-center rounded-xl ${
                   viewMode === "list" ? "bg-soft-accent" : "bg-transparent"
                 }`}
               >
                 <Feather
                   name="list"
                   size={20}
-                  color={viewMode === "list" ? colors.accent : "#727272"}
+                  color={viewMode === "list" ? colors.accent : colors.secondary}
                 />
-              </Pressable>
+              </ScalePressable>
             </View>
           </View>
 
@@ -370,7 +371,7 @@ export default function DocumentsScreen() {
                 (tab) => {
                   const isActive = selectedTab === tab;
                   return (
-                    <Pressable
+                    <ScalePressable
                       key={tab}
                       onPress={() => {
                         setSelectedTab(tab);
@@ -394,7 +395,7 @@ export default function DocumentsScreen() {
                       >
                         {tab}
                       </Text>
-                    </Pressable>
+                    </ScalePressable>
                   );
                 },
               )}
@@ -413,14 +414,16 @@ export default function DocumentsScreen() {
                     ? "Expiry"
                     : "Date Added";
                 return (
-                  <Pressable
+                  <ScalePressable
                     key={type}
                     onPress={() => setSort(type)}
                     accessibilityRole="button"
                     accessibilityLabel={`Sort by ${type}`}
                     accessibilityState={{ selected: isActive }}
-                    className={`px-4 rounded-full min-h-11 justify-center ${
-                      isActive ? "bg-accent" : "bg-transparent"
+                    className={`px-4 rounded-full border min-h-11 justify-center ${
+                      isActive
+                        ? "bg-accent border-accent"
+                        : "bg-surface border-border"
                     }`}
                   >
                     <Text
@@ -430,7 +433,7 @@ export default function DocumentsScreen() {
                     >
                       {label}
                     </Text>
-                  </Pressable>
+                  </ScalePressable>
                 );
               })}
             </View>
@@ -446,22 +449,22 @@ export default function DocumentsScreen() {
                     Category: {selectedCategory}
                   </Text>
                 </View>
-                <Pressable
+                <ScalePressable
                   onPress={() => setSelectedCategory(null)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityRole="button"
                   accessibilityLabel="Go back to folder list"
-                  className="flex-row items-center bg-surface border border-border/60 rounded-lg px-2 py-1 active:bg-border/20"
+                  className="flex-row items-center bg-surface border border-border/60 rounded-xl px-3 py-1.5 active:bg-border/20 min-h-11 justify-center"
                 >
                   <Feather
                     name="arrow-left"
-                    size={12}
+                    size={14}
                     color={colors.secondary}
                   />
-                  <Text className="text-caption text-secondary ml-1 font-medium">
+                  <Text className="text-body-sm text-secondary ml-1 font-semibold">
                     Back
                   </Text>
-                </Pressable>
+                </ScalePressable>
               </View>
             </View>
           )}
@@ -472,7 +475,7 @@ export default function DocumentsScreen() {
               {/* Folders Section Title & Create Button */}
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-h2 text-primary font-semibold">Folders</Text>
-                <Pressable
+                <ScalePressable
                   onPress={() => openFolderModal(null)}
                   accessibilityRole="button"
                   accessibilityLabel="Create new folder"
@@ -482,7 +485,7 @@ export default function DocumentsScreen() {
                   <Text className="text-caption text-accent ml-1 font-semibold">
                     New Folder
                   </Text>
-                </Pressable>
+                </ScalePressable>
               </View>
 
               <View
@@ -499,7 +502,7 @@ export default function DocumentsScreen() {
                       className="flex-row items-center border-b border-border/40"
                       style={isLast ? { borderBottomWidth: 0 } : undefined}
                     >
-                      <Pressable
+                      <ScalePressable
                         onPress={() => {
                           if (isSelectionMode) {
                             toggleFolderSelection(folderName);
@@ -514,6 +517,7 @@ export default function DocumentsScreen() {
                         className={`flex-1 flex-row items-center px-4 py-4 active:bg-background ${
                           isSelectionMode && isFolderSelected ? "bg-soft-accent/30" : ""
                         }`}
+                        activeScale={0.98}
                       >
                         <View className="w-11 h-11 rounded-xl bg-soft-accent items-center justify-center">
                           <Feather
@@ -530,9 +534,9 @@ export default function DocumentsScreen() {
                             {count} {count === 1 ? "item" : "items"}
                           </Text>
                         </View>
-                      </Pressable>
+                      </ScalePressable>
                       {isSelectionMode ? (
-                        <Pressable
+                        <ScalePressable
                           onPress={() => toggleFolderSelection(folderName)}
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           accessibilityRole="button"
@@ -542,29 +546,29 @@ export default function DocumentsScreen() {
                           <Feather
                             name={isFolderSelected ? "check-circle" : "circle"}
                             size={22}
-                            color={isFolderSelected ? colors.accent : "#B3B3B3"}
+                            color={isFolderSelected ? colors.accent : colors.secondary}
                           />
-                        </Pressable>
+                        </ScalePressable>
                       ) : (
                         <View className="flex-row items-center pr-3">
-                          <Pressable
+                          <ScalePressable
                             onPress={() => handleFolderOptions(folderName)}
                             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             accessibilityRole="button"
                             accessibilityLabel={`More options for folder ${folderName}`}
                             className="w-10 h-10 items-center justify-center rounded-full active:bg-border/25 mr-1"
                           >
-                            <Feather name="more-vertical" size={18} color="#B3B3B3" />
-                          </Pressable>
-                          <Pressable
+                            <Feather name="more-vertical" size={18} color={colors.secondary} />
+                          </ScalePressable>
+                          <ScalePressable
                             onPress={() => setSelectedCategory(folderName)}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             accessibilityRole="button"
                             accessibilityLabel={`Open folder ${folderName}`}
                             className="w-8 h-10 items-center justify-center"
                           >
-                            <Feather name="chevron-right" size={20} color="#B3B3B3" />
-                          </Pressable>
+                            <Feather name="chevron-right" size={20} color={colors.secondary} />
+                          </ScalePressable>
                         </View>
                       )}
                     </View>
@@ -591,12 +595,13 @@ export default function DocumentsScreen() {
                 style={{ flexDirection: "row", flexWrap: "wrap" }}
               >
                 {sortedDocuments.map((doc) => (
-                  <View key={doc.id} style={{ width: "50%" }} className="relative">
+                  <View key={doc.id} style={{ width: "50%" }}>
                     <DocumentCard
                       doc={doc}
                       viewMode="grid"
                       isSelectionMode={isSelectionMode}
                       isSelected={selectedDocumentIds.has(doc.id)}
+                      hideExpirySafe={sort !== "expiry"}
                       onPress={() => {
                         if (isSelectionMode) {
                           toggleDocumentSelection(doc.id);
@@ -610,15 +615,6 @@ export default function DocumentsScreen() {
                       onLongPress={() => handleStartSelectionWithDoc(doc.id)}
                       onFavoritePress={() => toggleFavorite(doc.id)}
                     />
-                    {sort === "expiry" && expiryUrgency(doc.expiryDate) === "safe" && (
-                      <View
-                        className="absolute"
-                        style={{ bottom: 22, left: 22 }}
-                        pointerEvents="none"
-                      >
-                        <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={false} />
-                      </View>
-                    )}
                   </View>
                 ))}
               </View>
@@ -628,12 +624,13 @@ export default function DocumentsScreen() {
                 style={styles.listShadow}
               >
                 {sortedDocuments.map((doc, idx) => (
-                  <View key={doc.id} className="relative">
+                  <View key={doc.id}>
                     <DocumentCard
                       doc={doc}
                       viewMode="list"
                       isSelectionMode={isSelectionMode}
                       isSelected={selectedDocumentIds.has(doc.id)}
+                      hideExpirySafe={sort !== "expiry"}
                       onPress={() => {
                         if (isSelectionMode) {
                           toggleDocumentSelection(doc.id);
@@ -647,15 +644,6 @@ export default function DocumentsScreen() {
                       onLongPress={() => handleStartSelectionWithDoc(doc.id)}
                       onFavoritePress={() => toggleFavorite(doc.id)}
                     />
-                    {sort === "expiry" && expiryUrgency(doc.expiryDate) === "safe" && (
-                      <View
-                        className="absolute right-12"
-                        style={{ top: 18 }}
-                        pointerEvents="none"
-                      >
-                        <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={false} />
-                      </View>
-                    )}
                   </View>
                 ))}
               </View>
@@ -668,17 +656,15 @@ export default function DocumentsScreen() {
         {/* Floating Action Button (FAB) */}
         {!isSelectionMode && (
           <View className="absolute bottom-5 right-6" style={styles.fabWrap}>
-            <Pressable
+            <ScalePressable
               onPress={() => router.push("/add-document" as never)}
               accessibilityRole="button"
               accessibilityLabel="Add new document"
               className="floating-action-button active:opacity-90"
-              style={({ pressed }) => [
-                pressed && { transform: [{ scale: 0.94 }] },
-              ]}
+              activeScale={0.94}
             >
               <Feather name="plus" size={26} color="#FFFFFF" />
-            </Pressable>
+            </ScalePressable>
           </View>
         )}
 
@@ -697,15 +683,15 @@ export default function DocumentsScreen() {
               </Text>
             </View>
             <View className="flex-row gap-2">
-              <Pressable
+              <ScalePressable
                 onPress={handleExitSelection}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel selection mode"
                 className="bg-background border border-border px-4 py-2.5 rounded-xl active:opacity-75 min-h-11 justify-center"
               >
                 <Text className="text-body-md font-semibold text-primary">Cancel</Text>
-              </Pressable>
-              <Pressable
+              </ScalePressable>
+              <ScalePressable
                 onPress={() => {
                   if (selectedDocumentIds.size === 0 && selectedFolderNames.size === 0) {
                     Alert.alert("Nothing Selected", "Please select at least one item to delete.");
@@ -719,7 +705,7 @@ export default function DocumentsScreen() {
               >
                 <Feather name="trash-2" size={16} color="white" />
                 <Text className="text-body-md font-semibold text-white ml-2">Delete</Text>
-              </Pressable>
+              </ScalePressable>
             </View>
           </View>
         )}
@@ -734,7 +720,7 @@ export default function DocumentsScreen() {
       >
         <View style={styles.modalOverlay} className="flex-1 items-center justify-center px-6">
           <View className="bg-surface w-full p-6 rounded-2xl border border-border/40" style={styles.listShadow}>
-            <Text className="text-h2 text-primary font-bold mb-4">
+            <Text className="text-h2 text-primary font-bold mb-4 font-display">
               {folderModalMode === "create" ? "Create New Folder" : "Rename Folder"}
             </Text>
 
@@ -743,8 +729,12 @@ export default function DocumentsScreen() {
               <TextInput
                 value={folderInputName}
                 onChangeText={setFolderInputName}
+                onFocus={() => setIsFolderInputFocused(true)}
+                onBlur={() => setIsFolderInputFocused(false)}
                 accessibilityLabel="Folder name"
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-body-lg text-primary"
+                className={`w-full bg-background border-2 rounded-xl px-4 py-[11px] text-body-lg text-primary ${
+                  isFolderInputFocused ? "border-accent" : "border-border/40"
+                }`}
                 placeholder="e.g. Work Documents"
                 autoFocus
                 placeholderTextColor={colors.secondary}
@@ -752,23 +742,23 @@ export default function DocumentsScreen() {
             </View>
 
             <View className="flex-row gap-3">
-              <Pressable
+              <ScalePressable
                 onPress={() => setIsFolderModalVisible(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel folder creation or rename"
-                className="flex-1 bg-background border border-border py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+                className="flex-1 bg-background border border-border py-3.5 rounded-xl items-center justify-center active:opacity-75 min-h-[48px]"
               >
-                <Text className="text-body-lg font-semibold text-primary">Cancel</Text>
-              </Pressable>
-              <Pressable
+                <Text className="text-body-md font-bold text-primary font-display font-semibold">Cancel</Text>
+              </ScalePressable>
+              <ScalePressable
                 onPress={handleSaveFolder}
                 accessibilityRole="button"
-                className="flex-1 bg-accent py-3 rounded-xl items-center justify-center active:opacity-75 min-h-11"
+                className="flex-1 bg-accent py-3.5 rounded-xl items-center justify-center active:opacity-85 min-h-[48px]"
               >
-                <Text className="text-body-lg font-semibold text-white">
+                <Text className="text-body-md font-bold text-white font-display font-semibold">
                   {folderModalMode === "create" ? "Create" : "Save"}
                 </Text>
-              </Pressable>
+              </ScalePressable>
             </View>
           </View>
         </View>

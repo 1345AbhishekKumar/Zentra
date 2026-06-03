@@ -27,6 +27,7 @@ import {
   isBefore,
 } from "date-fns";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScalePressable from "./ScalePressable";
 
 interface DatePickerFieldProps {
   label: string;
@@ -109,7 +110,7 @@ export default function DatePickerField({
         {displayLabel} {isRequired && <Text className="text-danger">*</Text>}
       </Text>
 
-      <Pressable
+      <ScalePressable
         onPress={handleTap}
         accessibilityRole="button"
         accessibilityLabel={`${displayLabel}: ${value ? formatDate(value) : "Not selected"}`}
@@ -124,7 +125,6 @@ export default function DatePickerField({
                 : colors.border,
             borderStyle: "solid",
           },
-          pressed && Platform.OS !== "web" ? styles.pressedScale : null,
         ]}
       >
         <Text
@@ -151,7 +151,7 @@ export default function DatePickerField({
             style={webInputStyle}
           />
         )}
-      </Pressable>
+      </ScalePressable>
 
       {/* Error Message */}
       {error && (
@@ -179,36 +179,34 @@ export default function DatePickerField({
             >
               {/* Toolbar */}
               <View className="flex-row items-center justify-between px-6 py-4 border-b border-border bg-background">
-                <Pressable
+                <ScalePressable
                   onPress={handleCancel}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel date selection"
-                  className="active:opacity-60"
                 >
                   <Text className="text-body-md text-secondary font-semibold font-display">
                     Cancel
                   </Text>
-                </Pressable>
+                </ScalePressable>
                 <Text className="text-body-lg text-primary font-bold font-display">
                   {displayLabel}
                 </Text>
-                <Pressable
+                <ScalePressable
                   onPress={handleDone}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityRole="button"
                   accessibilityLabel="Confirm date selection"
-                  className="active:opacity-60"
                 >
                   <Text className="text-body-md text-accent font-bold font-display">
                     Done
                   </Text>
-                </Pressable>
+                </ScalePressable>
               </View>
 
               {/* Month Navigation */}
               <View className="flex-row items-center justify-between px-6 py-4 bg-surface">
-                <Pressable
+                <ScalePressable
                   onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}
                   className="w-10 h-10 items-center justify-center rounded-full active:bg-soft-accent"
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -216,11 +214,11 @@ export default function DatePickerField({
                   accessibilityLabel="Previous month"
                 >
                   <Feather name="chevron-left" size={24} color={colors.primary} />
-                </Pressable>
+                </ScalePressable>
                 <Text className="text-h2 text-primary font-bold font-display">
                   {format(currentMonth, "MMMM yyyy")}
                 </Text>
-                <Pressable
+                <ScalePressable
                   onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}
                   className="w-10 h-10 items-center justify-center rounded-full active:bg-soft-accent"
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -228,7 +226,7 @@ export default function DatePickerField({
                   accessibilityLabel="Next month"
                 >
                   <Feather name="chevron-right" size={24} color={colors.primary} />
-                </Pressable>
+                </ScalePressable>
               </View>
 
               {/* Weekday headers */}
@@ -260,12 +258,13 @@ export default function DatePickerField({
                       style={{ width: "14.28%", aspectRatio: 1 }}
                       className="items-center justify-center p-1"
                     >
-                      <Pressable
+                      <ScalePressable
                         disabled={isPast}
                         onPress={() => setTempDate(day)}
                         accessibilityRole="button"
                         accessibilityLabel={format(day, "d MMMM yyyy")}
                         accessibilityState={{ disabled: isPast, selected: isSelected }}
+                        activeScale={0.93}
                         className={`w-10 h-10 rounded-full items-center justify-center ${
                           isSelected
                             ? "bg-accent shadow-sm"
@@ -275,11 +274,6 @@ export default function DatePickerField({
                                 ? "bg-soft-accent border border-accent/30"
                                 : "active:bg-soft-accent"
                         }`}
-                        style={({ pressed }) =>
-                          pressed && !isPast && !isSelected
-                            ? { backgroundColor: colors.softAccent }
-                            : {}
-                        }
                       >
                         <Text
                           className={`text-body-md font-semibold font-display ${
@@ -296,7 +290,7 @@ export default function DatePickerField({
                         >
                           {format(day, "d")}
                         </Text>
-                      </Pressable>
+                      </ScalePressable>
                     </View>
                   );
                 })}
@@ -313,9 +307,6 @@ export default function DatePickerField({
 }
 
 const styles = StyleSheet.create({
-  pressedScale: {
-    transform: [{ scale: 0.98 }],
-  },
   modalOverlay: {
     flex: 1,
     width: "100%",
