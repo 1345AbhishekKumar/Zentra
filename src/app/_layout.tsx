@@ -18,6 +18,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { Image } from "expo-image";
 import { images } from "@/constants/images";
 import { useAppLock } from "@/hooks/useAppLock";
+import CustomAlert from "@/components/CustomAlert";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
 if (!publishableKey) {
@@ -176,6 +177,8 @@ function InitialLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="add-document" options={{ presentation: "modal" }} />
       </Stack>
+
+      <CustomAlert />
 
       <Modal
         visible={isLocked && isSignedIn && segments[0] !== "(auth)" && isLockEnabled}

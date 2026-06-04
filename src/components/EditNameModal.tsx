@@ -7,10 +7,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import ScalePressable from "@/components/ScalePressable";
 import { colors } from "@/theme/tokens";
+import { showAlert } from "@/store/alertStore";
 
 interface EditNameModalProps {
   visible: boolean;
@@ -35,7 +35,7 @@ export default function EditNameModal({ visible, onClose, user }: EditNameModalP
 
   const handleSaveName = async () => {
     if (!formFirstName.trim()) {
-      Alert.alert("Validation Error", "First name is required.");
+      showAlert("Validation Error", "First name is required.", "warning");
       return;
     }
     try {
@@ -49,7 +49,7 @@ export default function EditNameModal({ visible, onClose, user }: EditNameModalP
     } catch (err) {
       console.error("Failed to update name:", err);
       setIsSavingName(false);
-      Alert.alert("Update Failed", "An error occurred while updating your name.");
+      showAlert("Update Failed", "An error occurred while updating your name.", "error");
     }
   };
 

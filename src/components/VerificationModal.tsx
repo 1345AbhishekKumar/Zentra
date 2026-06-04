@@ -12,6 +12,8 @@ import {
   TextInput,
   View,
 } from "react-native";
+import StatusCircle from "./StatusCircle";
+
 
 interface VerificationModalProps {
   visible: boolean;
@@ -205,43 +207,23 @@ export function VerificationModal({
                 className="items-center py-[20px] w-full"
                 style={{ width: "100%" }}
               >
-                <View
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 32,
-                    backgroundColor: "#E8FDF0",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 2,
-                    borderColor: "#22C55E",
-                    marginBottom: 24,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 32,
-                      color: "#22C55E",
-                      fontWeight: "bold",
-                      marginTop: -2,
-                    }}
-                  >
-                    ✓
-                  </Text>
+                <View className="mb-6">
+                  <StatusCircle type="success" />
                 </View>
                 <Text
-                  className="text-[#12121A] text-2xl font-bold mb-[12px] text-center tracking-tight"
+                  className="text-primary text-2xl font-bold mb-[12px] text-center tracking-tight"
                   style={{ fontFamily: "Outfit" }}
                 >
                   Vault Secured
                 </Text>
                 <Text
-                  className="text-[#6C6B7E] text-center text-[14px]"
+                  className="text-secondary text-center text-[14px]"
                   style={{ fontFamily: "Inter", lineHeight: 20 }}
                 >
                   Decrypted local keys successfully. Opening Zentra...
                 </Text>
               </View>
+
             ) : isValidating ? (
               <View
                 className="items-center py-[20px] w-full"
@@ -388,7 +370,7 @@ export function VerificationModal({
                       </Pressable>
                       {showResendFeedback && (
                         <Text
-                          className="text-[#22C55E] text-[12px] font-medium"
+                          className="text-success text-[12px] font-medium"
                           style={{ fontFamily: "Inter" }}
                         >
                           Code resent successfully!
@@ -410,7 +392,7 @@ export function VerificationModal({
                   })}
                 >
                   <Text
-                    className="text-[#6C6B7E] font-medium text-[15px]"
+                    className="text-secondary font-medium text-[15px]"
                     style={{ fontFamily: "Inter" }}
                   >
                     Cancel

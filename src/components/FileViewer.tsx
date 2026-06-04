@@ -7,7 +7,6 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -17,6 +16,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import {
   Gesture,
   GestureDetector,
@@ -53,9 +53,10 @@ async function openExternally(uri: string): Promise<void> {
     }
 
     if (!isIntentLauncherAvailable) {
-      Alert.alert(
+      showAlert(
         "Viewer Unavailable",
         "No internal viewer is available on this device/environment. Please install a PDF/document viewer app.",
+        "warning"
       );
       return;
     }
@@ -91,9 +92,10 @@ async function openExternally(uri: string): Promise<void> {
         });
       } catch (error) {
         console.error("RN Share fallback failed:", error);
-        Alert.alert(
+        showAlert(
           "Viewer Unavailable",
-          "Unable to open or share this file on this device/environment."
+          "Unable to open or share this file on this device/environment.",
+          "error"
         );
       }
     }
@@ -268,9 +270,10 @@ export default function FileViewer({
     try {
       await openExternally(localUri);
     } catch {
-      Alert.alert(
+      showAlert(
         "Unable to Open",
         "No app is available to open this file type on your device.",
+        "error"
       );
     } finally {
       setLoading(false);

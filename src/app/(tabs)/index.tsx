@@ -13,13 +13,13 @@ import React, { useMemo, useState } from "react";
 import { seedMockData } from "@/lib/seed";
 import {
   AccessibilityInfo,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import { useDocumentSelection } from "@/hooks/useDocumentSelection";
 import QuickAccessCard from "@/components/QuickAccessCard";
 import RecentDocRow from "@/components/RecentDocRow";
@@ -100,7 +100,7 @@ export default function HomeScreen() {
       AccessibilityInfo.announceForAccessibility("Demo documents loaded successfully");
     } catch (err) {
       console.warn("Failed to seed demo data:", err);
-      Alert.alert("Seeding Failed", "Could not load demo documents.");
+      showAlert("Seeding Failed", "Could not load demo documents.", "error");
     }
   }, [canSeedDemo]);
 
@@ -316,7 +316,7 @@ export default function HomeScreen() {
               <ScalePressable
                 onPress={() => {
                   if (selectedDocumentIds.size === 0) {
-                    Alert.alert("Nothing Selected", "Please select at least one document to delete.");
+                    showAlert("Nothing Selected", "Please select at least one document to delete.", "warning");
                     return;
                   }
                   setIsBulkDeleteModalVisible(true);

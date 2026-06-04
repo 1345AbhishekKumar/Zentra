@@ -6,10 +6,10 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Platform,
   TextInput,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
@@ -68,17 +68,17 @@ export default function ImportDataScreen() {
     try {
       const parsed = JSON.parse(jsonText);
       if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.documents)) {
-        Alert.alert("Error", "This file doesn" + "'" + "t appear to be a valid Zentra backup.");
+        showAlert("Error", "This file doesn't appear to be a valid Zentra backup.", "error");
         return;
       }
       if (parsed.documents.length === 0) {
-        Alert.alert("Error", "No documents found in this backup file.");
+        showAlert("Error", "No documents found in this backup file.", "error");
         return;
       }
       // Successfully parsed and validated structure
       setLoadedBackup(parsed);
     } catch {
-      Alert.alert("Error", "This file doesn" + "'" + "t appear to be a valid Zentra backup.");
+      showAlert("Error", "This file doesn't appear to be a valid Zentra backup.", "error");
     }
   };
 
@@ -106,9 +106,10 @@ export default function ImportDataScreen() {
     try {
       const DocumentPicker = safeRequireDocumentPicker();
       if (!DocumentPicker) {
-        Alert.alert(
+        showAlert(
           "Sandbox Mode",
           "Native document browser is not available in this environment. A simulated backup file has been loaded for testing.",
+          "info",
           [
             {
               text: "OK",
@@ -164,7 +165,7 @@ export default function ImportDataScreen() {
       }
     } catch (error) {
       console.error("Failed to pick backup file:", error);
-      Alert.alert("Picking Failed", "An error occurred while opening the document browser.");
+      showAlert("Picking Failed", "An error occurred while opening the document browser.", "error");
     }
   };
 
@@ -229,11 +230,12 @@ export default function ImportDataScreen() {
         addDocument(doc);
       }
 
-      Alert.alert(
+      showAlert(
         "Import Complete",
         `Import complete. ${processedDocs.length} ${
           processedDocs.length === 1 ? "document" : "documents"
         } added, ${skippedCount} skipped.`,
+        "success",
         [
           {
             text: "OK",
@@ -245,7 +247,7 @@ export default function ImportDataScreen() {
       );
     } catch (error) {
       console.error("Import failed:", error);
-      Alert.alert("Import Failed", "An error occurred while importing documents.");
+      showAlert("Import Failed", "An error occurred while importing documents.", "error");
     } finally {
       setIsImporting(false);
     }

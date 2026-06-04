@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, Switch, Alert, StyleSheet } from "react-native";
+import { View, Text, Switch, StyleSheet } from "react-native";
 import { colors } from "@/theme/tokens";
 import { hasPermission, requestPermissions } from "@/lib/notifications";
 import { Feather } from "@expo/vector-icons";
+import { showAlert } from "@/store/alertStore";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
@@ -35,9 +36,10 @@ export default function NotificationToggle({
       if (!hasPerm) {
         const granted = await requestPermissions();
         if (!granted) {
-          Alert.alert(
+          showAlert(
             "Notifications Disabled",
-            "Please enable notifications in your device settings to receive expiry reminders."
+            "Please enable notifications in your device settings to receive expiry reminders.",
+            "warning"
           );
           return;
         }

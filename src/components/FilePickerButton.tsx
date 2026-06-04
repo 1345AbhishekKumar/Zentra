@@ -3,9 +3,10 @@ import { DocumentFileType } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import React from "react";
-import { Alert, Linking, Text, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import ScalePressable from "./ScalePressable";
 import { getFileVisuals } from "@/lib/visuals";
+import { showAlert } from "@/store/alertStore";
 
 export interface PickedFile {
   uri: string;
@@ -119,9 +120,10 @@ export default function FilePickerButton({
       if (!ImagePicker) return false;
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
+        showAlert(
           "Camera Permission Required",
           "Zentra needs access to your camera to capture photos. Please enable it in your device Settings.",
+          "warning",
           [
             { text: "Cancel", style: "cancel" },
             { text: "Settings", onPress: () => Linking.openSettings() },
@@ -142,9 +144,10 @@ export default function FilePickerButton({
       if (!ImagePicker) return false;
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
+        showAlert(
           "Photo Library Permission Required",
           "Zentra needs access to your photo library to select photos. Please enable it in your device Settings.",
+          "warning",
           [
             { text: "Cancel", style: "cancel" },
             { text: "Settings", onPress: () => Linking.openSettings() },
@@ -163,10 +166,10 @@ export default function FilePickerButton({
     try {
       const ImagePicker = safeRequireImagePicker();
       if (!ImagePicker) {
-        Alert.alert(
+        showAlert(
           "Sandbox Mode",
           "Native camera is not available in this environment. A simulated document photo has been attached for testing.",
-          [{ text: "OK" }]
+          "info"
         );
         onFilePicked({
           uri: "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500",
@@ -205,7 +208,7 @@ export default function FilePickerButton({
       }
     } catch (error) {
       console.error("Camera capture failed:", error);
-      Alert.alert("Capture Failed", "An error occurred while opening the camera.");
+      showAlert("Capture Failed", "An error occurred while opening the camera.", "error");
     }
   };
 
@@ -213,10 +216,10 @@ export default function FilePickerButton({
     try {
       const ImagePicker = safeRequireImagePicker();
       if (!ImagePicker) {
-        Alert.alert(
+        showAlert(
           "Sandbox Mode",
           "Native photo library is not available in this environment. A simulated photo library image has been attached for testing.",
-          [{ text: "OK" }]
+          "info"
         );
         onFilePicked({
           uri: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=500",
@@ -255,7 +258,7 @@ export default function FilePickerButton({
       }
     } catch (error) {
       console.error("Photo library picking failed:", error);
-      Alert.alert("Selection Failed", "An error occurred while opening the photo library.");
+      showAlert("Selection Failed", "An error occurred while opening the photo library.", "error");
     }
   };
 
@@ -263,10 +266,10 @@ export default function FilePickerButton({
     try {
       const DocumentPicker = safeRequireDocumentPicker();
       if (!DocumentPicker) {
-        Alert.alert(
+        showAlert(
           "Sandbox Mode",
           "Native file browser is not available in this environment. A simulated PDF document has been attached for testing.",
-          [{ text: "OK" }]
+          "info"
         );
         onFilePicked({
           uri: "simulated_document.pdf",
@@ -301,21 +304,21 @@ export default function FilePickerButton({
       }
     } catch (error) {
       console.error("Document picking failed:", error);
-      Alert.alert("Picking Failed", "An error occurred while opening the document browser.");
+      showAlert("Picking Failed", "An error occurred while opening the document browser.", "error");
     }
   };
 
   const showAttachmentMenu = () => {
-    Alert.alert(
+    showAlert(
       "Attach File",
       "Select a source for your file attachment",
+      "info",
       [
         { text: "📷 Camera", onPress: handleCamera },
         { text: "🖼 Photo Library", onPress: handlePhotoLibrary },
         { text: "📄 Browse Files", onPress: handleDocumentPicker },
         { text: "Cancel", style: "cancel" },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 

@@ -4,10 +4,10 @@ import {
   Text,
   Modal,
   TextInput,
-  Alert,
 } from "react-native";
 import ScalePressable from "@/components/ScalePressable";
 import { colors } from "@/theme/tokens";
+import { showAlert } from "@/store/alertStore";
 
 interface FolderModalProps {
   visible: boolean;
@@ -37,7 +37,7 @@ export default function FolderModal({
   const handleSave = () => {
     const name = folderInputName.trim();
     if (!name) {
-      Alert.alert("Validation Error", "Folder name cannot be empty.");
+      showAlert("Validation Error", "Folder name cannot be empty.", "warning");
       return;
     }
     onSave(name);

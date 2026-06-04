@@ -1,8 +1,7 @@
 import React from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import { colors } from "@/theme/tokens";
 import ScalePressable from "./ScalePressable";
+import StatusCircle from "./StatusCircle";
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -25,9 +24,6 @@ export default function ConfirmationModal({
   cancelLabel = "Cancel",
   isDestructive = false,
 }: ConfirmationModalProps) {
-  const iconName = isDestructive ? "alert-triangle" : "help-circle";
-  const iconColor = isDestructive ? colors.danger : colors.accent;
-  const iconBgColor = isDestructive ? "#FEF2F2" : "#EEF2FF";
   const confirmBtnBgClass = isDestructive ? "bg-danger" : "bg-accent";
 
   return (
@@ -43,12 +39,10 @@ export default function ConfirmationModal({
           style={{ maxWidth: 340 }}
         >
           {/* Circular Header Icon */}
-          <View 
-            className="w-16 h-16 rounded-full items-center justify-center mb-4"
-            style={{ backgroundColor: iconBgColor }}
-          >
-            <Feather name={iconName} size={28} color={iconColor} />
+          <View className="mb-4">
+            <StatusCircle type={isDestructive ? "destructive" : "question"} />
           </View>
+
 
           {/* Title */}
           <Text className="text-h2 text-primary font-bold text-center mb-2 font-display">
