@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { requireOptionalNativeModule } from "expo-modules-core";
+import { showAlert } from "@/store/alertStore";
 
 interface GlobalWithNativeFlags {
   __isImagePickerNativeAvailable?: boolean;
@@ -48,10 +49,10 @@ export function useProfilePhoto(user: any) {
     try {
       const ImagePicker = safeRequireImagePicker();
       if (!ImagePicker) {
-        Alert.alert(
+        showAlert(
           "Sandbox Mode",
           "Native camera is not available. A simulated profile photo has been applied for testing.",
-          [{ text: "OK" }]
+          "info"
         );
         setIsUploading(true);
         setTimeout(async () => {
@@ -66,7 +67,7 @@ export function useProfilePhoto(user: any) {
             console.error(err);
             if (isMountedRef.current) {
               setIsUploading(false);
-              Alert.alert("Upload Failed", "Failed to update profile photo.");
+              showAlert("Upload Failed", "Failed to update profile photo.", "error");
             }
           }
         }, 1000);
@@ -75,9 +76,10 @@ export function useProfilePhoto(user: any) {
 
       const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
       if (cameraStatus !== "granted") {
-        Alert.alert(
+        showAlert(
           "Permission Required",
           "Zentra needs access to your camera to take a photo. Please enable it in Settings.",
+          "warning",
           [
             { text: "Cancel", style: "cancel" },
             { text: "Settings", onPress: () => Linking.openSettings() },
@@ -113,7 +115,7 @@ export function useProfilePhoto(user: any) {
       if (isMountedRef.current) {
         setIsUploading(false);
       }
-      Alert.alert("Upload Failed", "An error occurred while uploading your photo.");
+      showAlert("Upload Failed", "An error occurred while uploading your photo.", "error");
     }
   };
 
@@ -121,10 +123,10 @@ export function useProfilePhoto(user: any) {
     try {
       const ImagePicker = safeRequireImagePicker();
       if (!ImagePicker) {
-        Alert.alert(
+        showAlert(
           "Sandbox Mode",
           "Native gallery is not available. A simulated profile photo has been applied for testing.",
-          [{ text: "OK" }]
+          "info"
         );
         setIsUploading(true);
         setTimeout(async () => {
@@ -139,7 +141,7 @@ export function useProfilePhoto(user: any) {
             console.error(err);
             if (isMountedRef.current) {
               setIsUploading(false);
-              Alert.alert("Upload Failed", "Failed to update profile photo.");
+              showAlert("Upload Failed", "Failed to update profile photo.", "error");
             }
           }
         }, 1000);
@@ -148,9 +150,10 @@ export function useProfilePhoto(user: any) {
 
       const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (galleryStatus !== "granted") {
-        Alert.alert(
+        showAlert(
           "Permission Required",
           "Zentra needs access to your gallery to pick a photo. Please enable it in Settings.",
+          "warning",
           [
             { text: "Cancel", style: "cancel" },
             { text: "Settings", onPress: () => Linking.openSettings() },
@@ -186,7 +189,7 @@ export function useProfilePhoto(user: any) {
       if (isMountedRef.current) {
         setIsUploading(false);
       }
-      Alert.alert("Upload Failed", "An error occurred while uploading your photo.");
+      showAlert("Upload Failed", "An error occurred while uploading your photo.", "error");
     }
   };
 
@@ -204,7 +207,7 @@ export function useProfilePhoto(user: any) {
       if (isMountedRef.current) {
         setIsUploading(false);
       }
-      Alert.alert("Failed to remove photo", "An error occurred while deleting your profile photo.");
+      showAlert("Failed to remove photo", "An error occurred while deleting your profile photo.", "error");
     }
   };
 
@@ -219,8 +222,7 @@ export function useProfilePhoto(user: any) {
     }
 
     options.push({ text: "Cancel", style: "cancel" as const });
-
-    Alert.alert("Profile Photo", "Choose an option to update your photo", options);
+    showAlert("Profile Photo", "Choose an option to update your photo", "info", options);
   };
 
   return {

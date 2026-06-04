@@ -6,8 +6,8 @@ import {
   Switch,
   ScrollView,
   StyleSheet,
-  Alert,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
@@ -67,9 +67,10 @@ export default function AppLockScreen() {
       if (success) {
         await enableLock();
       } else {
-        Alert.alert(
+        showAlert(
           "Authentication Failed",
-          "You must authenticate to enable App Lock."
+          "You must authenticate to enable App Lock.",
+          "error"
         );
       }
     } else {
@@ -80,9 +81,9 @@ export default function AppLockScreen() {
   const handleTestAuth = async () => {
     const success = await authenticate();
     if (success) {
-      Alert.alert("Authentication Successful", "App Lock is configured correctly!");
+      showAlert("Authentication Successful", "App Lock is configured correctly!", "success");
     } else {
-      Alert.alert("Authentication Failed", "Could not verify credentials.");
+      showAlert("Authentication Failed", "Could not verify credentials.", "error");
     }
   };
 

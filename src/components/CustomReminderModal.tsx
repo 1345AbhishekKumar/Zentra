@@ -6,10 +6,10 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import ScalePressable from "@/components/ScalePressable";
 import { colors } from "@/theme/tokens";
+import { showAlert } from "@/store/alertStore";
 
 interface CustomReminderModalProps {
   visible: boolean;
@@ -23,7 +23,7 @@ export default function CustomReminderModal({ visible, onClose, onAdd }: CustomR
   const handleAdd = () => {
     const daysVal = parseInt(customDaysInput.trim(), 10);
     if (isNaN(daysVal) || daysVal <= 0 || daysVal > 365) {
-      Alert.alert("Validation Error", "Please enter a valid number of days between 1 and 365.");
+      showAlert("Validation Error", "Please enter a valid number of days between 1 and 365.", "warning");
       return;
     }
     onAdd(daysVal);

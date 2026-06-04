@@ -9,12 +9,12 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
 import { images } from "@/constants/images";
 import { useClerk, useSignIn } from "@clerk/expo";
+import { showAlert } from "@/store/alertStore";
 
 interface ClerkErrorJSON {
   errors: {
@@ -189,7 +189,7 @@ export default function ForgotPassword() {
 
         if (signIn.status === "complete") {
           await setActive({ session: signIn.createdSessionId });
-          Alert.alert("Success", "Password reset successfully!", [
+          showAlert("Success", "Password reset successfully!", "success", [
             { text: "OK", onPress: () => router.replace("/") },
           ]);
         } else {
@@ -436,7 +436,7 @@ export default function ForgotPassword() {
                           </Text>
                         </Pressable>
                         {showResendFeedback && (
-                          <Text className="text-[#22C55E] text-[12px] font-medium" style={{ fontFamily: "Inter" }}>
+                          <Text className="text-success text-[12px] font-medium" style={{ fontFamily: "Inter" }}>
                             Code resent successfully!
                           </Text>
                         )}

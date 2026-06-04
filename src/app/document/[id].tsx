@@ -14,13 +14,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   AccessibilityInfo,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getFileVisuals, getFileTypeLabel } from "@/lib/visuals";
 import DocumentInfoList from "@/components/DocumentInfoList";
@@ -91,17 +91,19 @@ export default function DocumentDetailsScreen() {
     try {
       const exists = await fileExists(doc.localUri);
       if (!exists) {
-        Alert.alert(
+        showAlert(
           "File Not Found",
           "The attached file could not be found. It may have been moved or deleted from your device.",
+          "error"
         );
         return;
       }
       setFileViewerVisible(true);
     } catch {
-      Alert.alert(
+      showAlert(
         "File Not Found",
         "The attached file could not be found. It may have been moved or deleted from your device.",
+        "error"
       );
     }
   };
@@ -348,7 +350,7 @@ export default function DocumentDetailsScreen() {
           onPress: () => {
             updateDocument(doc.id, { category: folder });
             AccessibilityInfo.announceForAccessibility(`Document moved to ${folder}`);
-            Alert.alert("Document Moved", `Successfully moved to "${folder}"`);
+            showAlert("Document Moved", `Successfully moved to "${folder}"`, "success");
           },
         }))}
       />

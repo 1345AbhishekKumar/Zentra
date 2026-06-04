@@ -13,12 +13,12 @@ import ScalePressable from "@/components/ScalePressable";
 import { seedMockData } from "@/lib/seed";
 import {
   AccessibilityInfo,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import { useDocumentSelection } from "@/hooks/useDocumentSelection";
 import FolderModal from "@/components/FolderModal";
 
@@ -70,13 +70,13 @@ export default function DocumentsScreen() {
     if (folderModalMode === "create") {
       const success = addFolder(name);
       if (!success) {
-        Alert.alert("Folder Exists", "A folder with this name already exists.");
+        showAlert("Folder Exists", "A folder with this name already exists.", "warning");
         return;
       }
     } else {
       const success = renameFolder(targetFolderName, name);
       if (!success) {
-        Alert.alert("Folder Exists", "A folder with this name already exists.");
+        showAlert("Folder Exists", "A folder with this name already exists.", "warning");
         return;
       }
     }
@@ -201,7 +201,7 @@ export default function DocumentsScreen() {
                     AccessibilityInfo.announceForAccessibility("Demo documents loaded successfully");
                   } catch (err) {
                     console.warn("Failed to seed demo data:", err);
-                    Alert.alert("Seeding Failed", "Could not load demo documents.");
+                    showAlert("Seeding Failed", "Could not load demo documents.", "error");
                   }
                 }}
                 accessibilityRole="button"
@@ -619,7 +619,7 @@ export default function DocumentsScreen() {
               <ScalePressable
                 onPress={() => {
                   if (selectedDocumentIds.size === 0 && selectedFolderNames.size === 0) {
-                    Alert.alert("Nothing Selected", "Please select at least one item to delete.");
+                    showAlert("Nothing Selected", "Please select at least one item to delete.", "warning");
                     return;
                   }
                   setIsBulkDeleteModalVisible(true);

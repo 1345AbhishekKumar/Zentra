@@ -8,7 +8,6 @@ import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -19,6 +18,7 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { showAlert } from "@/store/alertStore";
 
 interface ClerkErrorJSON {
   errors: {
@@ -187,11 +187,12 @@ export default function SignUp() {
       }
     } catch (err) {
       console.error("OAuth error", err);
-      Alert.alert(
+      showAlert(
         "Google Sign In Failed",
         err instanceof Error
           ? err.message
           : "An unexpected error occurred during Google sign-in.",
+        "error"
       );
     } finally {
       setIsGoogleLoading(false);

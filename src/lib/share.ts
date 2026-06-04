@@ -1,6 +1,7 @@
 import { ZentraDocument, DocumentFileType, NotificationSettings } from "@/types";
 import { formatDate } from "./date";
-import { Alert, Platform, Share } from "react-native";
+import { Platform, Share } from "react-native";
+import { showAlert } from "@/store/alertStore";
 import {
   deleteFile,
   fileExists,
@@ -59,7 +60,7 @@ export async function shareText(title: string, message: string): Promise<void> {
       if (navigator.share) {
         await navigator.share({ title, text: message });
       } else {
-        Alert.alert("Sharing Not Supported", "Your browser does not support sharing.");
+        showAlert("Sharing Not Supported", "Your browser does not support sharing.", "warning");
       }
       return;
     }
@@ -76,12 +77,12 @@ export async function shareFile(uri: string, filename: string, fileType: Documen
   try {
     const exists = await fileExists(uri);
     if (!exists) {
-      Alert.alert("File Not Found", "The attached file could not be found.");
+      showAlert("File Not Found", "The attached file could not be found.", "error");
       return;
     }
 
     if (Platform.OS === "web") {
-      Alert.alert("Not Supported", "Web sharing of files is not fully supported in this environment.");
+      showAlert("Not Supported", "Web sharing of files is not fully supported in this environment.", "warning");
       return;
     }
 
@@ -97,15 +98,16 @@ export async function shareFile(uri: string, filename: string, fileType: Documen
       if (Platform.OS === "ios") {
         await Share.share({ url: uri });
       } else {
-        Alert.alert(
+        showAlert(
           "File Sharing Unavailable",
-          "Sharing raw files is not supported on this environment/device."
+          "Sharing raw files is not supported on this environment/device.",
+          "warning"
         );
       }
     }
   } catch (error) {
     console.error("[shareFile] Failed to share file:", error);
-    Alert.alert("Sharing Failed", "An error occurred while sharing the file.");
+    showAlert("Sharing Failed", "An error occurred while sharing the file.", "error");
   }
 }
 
@@ -118,7 +120,7 @@ export async function shareDocumentDetailsHtml(doc: ZentraDocument): Promise<voi
   try {
     const exists = await fileExists(doc.localUri);
     if (!exists) {
-      Alert.alert("File Not Found", "The attached file could not be found.");
+      showAlert("File Not Found", "The attached file could not be found.", "error");
       return;
     }
 
@@ -153,9 +155,10 @@ export async function shareDocumentDetailsHtml(doc: ZentraDocument): Promise<voi
         await Share.share({ url: tempUri });
       } else {
         const summary = buildDocumentSummary(doc);
-        Alert.alert(
+        showAlert(
           "Rich Sharing Unavailable",
           "HTML/Image sharing is not supported in this environment. Would you like to share the document details as text instead?",
+          "info",
           [
             { text: "Cancel", style: "cancel" },
             {
@@ -171,7 +174,7 @@ export async function shareDocumentDetailsHtml(doc: ZentraDocument): Promise<voi
     await deleteFile(tempUri);
   } catch (error) {
     console.error("[shareDocumentDetailsHtml] Failed:", error);
-    Alert.alert("Error", "Failed to generate document export.");
+    showAlert("Error", "Failed to generate document export.", "error");
   }
 }
 
@@ -198,7 +201,7 @@ export async function downloadDocument(doc: ZentraDocument): Promise<void> {
         element.click();
         document.body.removeChild(element);
       }
-      Alert.alert("Success", "Document downloaded successfully!");
+      showAlert("Success", "Document downloaded successfully!", "success");
       return;
     }
 
@@ -207,7 +210,7 @@ export async function downloadDocument(doc: ZentraDocument): Promise<void> {
       try {
         const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (!permissions.granted) {
-          Alert.alert("Permission Denied", "Cannot save file without folder permissions.");
+          showAlert("Permission Denied", "Cannot save file without folder permissions.", "error");
           return;
         }
 
@@ -241,14 +244,14 @@ export async function downloadDocument(doc: ZentraDocument): Promise<void> {
           await deleteFile(fileUri);
         }
 
-        Alert.alert("Success", "Document saved to your selected folder.");
+        showAlert("Success", "Document saved to your selected folder.", "success");
       } catch (error) {
         console.error("Android download failed:", error);
         const Sharing = getSharingModule();
         if (doc.localUri && Sharing) {
           await Sharing.shareAsync(doc.localUri);
         } else {
-          Alert.alert("Error", "Failed to download document.");
+          showAlert("Error", "Failed to download document.", "error");
         }
       }
     } else {
@@ -279,13 +282,13 @@ export async function downloadDocument(doc: ZentraDocument): Promise<void> {
           }
         } catch (error) {
           console.error("RN Share fallback for iOS download failed:", error);
-          Alert.alert("Error", "Save/Share is not available on this device.");
+          showAlert("Error", "Save/Share is not available on this device.", "error");
         }
       }
     }
   } catch (error) {
     console.error("[downloadDocument] Failed:", error);
-    Alert.alert("Error", "Failed to download document.");
+    showAlert("Error", "Failed to download document.", "error");
   }
 }
 
@@ -330,7 +333,7 @@ export async function exportBackup(
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
-      Alert.alert("Success", "Backup file downloaded successfully!");
+      showAlert("Success", "Backup file downloaded successfully!", "success");
       return;
     }
 
@@ -358,6 +361,6 @@ export async function exportBackup(
     await deleteFile(tempPath);
   } catch (error) {
     console.error("[exportBackup] Failed to export backup:", error);
-    Alert.alert("Export Failed", "An error occurred while generating or sharing your backup.");
+    showAlert("Export Failed", "An error occurred while generating or sharing your backup.", "error");
   }
 }

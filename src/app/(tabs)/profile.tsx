@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, Platform } from "react-native";
 import { useUser, useAuth } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
+import { showAlert } from "@/store/alertStore";
 
 import NotificationToggle from "@/components/NotificationToggle";
 import ConfirmationModal from "@/components/ConfirmationModal";
@@ -105,7 +106,7 @@ export default function ProfileScreen() {
       router.replace("/(auth)/sign-in");
     } catch (err) {
       console.error("Error signing out:", err);
-      Alert.alert("Error", "Failed to sign out. Please try again.");
+      showAlert("Error", "Failed to sign out. Please try again.", "error");
     }
   };
 
@@ -113,10 +114,10 @@ export default function ProfileScreen() {
     try {
       await cancelAllNotifications();
       clearAllData();
-      Alert.alert("Success", "All document data has been deleted.");
+      showAlert("Success", "All document data has been deleted.", "success");
     } catch (err) {
       console.error("Error deleting data:", err);
-      Alert.alert("Error", "Failed to clear notifications or data.");
+      showAlert("Error", "Failed to clear notifications or data.", "error");
     }
   };
 
@@ -283,10 +284,10 @@ export default function ProfileScreen() {
                   // eslint-disable-next-line @typescript-eslint/no-require-imports
                   const { seedMockData } = require("@/lib/seed");
                   await seedMockData();
-                  Alert.alert("Success", "Demo documents loaded successfully.");
+                  showAlert("Success", "Demo documents loaded successfully.", "success");
                 } catch (err) {
                   console.warn("Failed to seed demo data:", err);
-                  Alert.alert("Seeding Failed", "Could not load demo documents.");
+                  showAlert("Seeding Failed", "Could not load demo documents.", "error");
                 }
               }}
               showBorder
