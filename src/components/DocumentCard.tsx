@@ -1,12 +1,12 @@
-import { formatDate } from "@/lib/date";
+import { formatAddedDate } from "@/lib/date";
 import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { isToday, isYesterday, parseISO } from "date-fns";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import ExpiryBadge from "./ExpiryBadge";
 import ScalePressable from "./ScalePressable";
+import { getFileVisuals } from "@/lib/visuals";
 
 interface DocumentCardProps {
   doc: ZentraDocument;
@@ -17,55 +17,6 @@ interface DocumentCardProps {
   isSelected?: boolean;
   onLongPress?: () => void;
   hideExpirySafe?: boolean;
-}
-
-type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
-
-interface FileVisuals {
-  iconName: FeatherIcon;
-  iconColor: string;
-  bgColor: string;
-}
-
-function getFileVisuals(fileType: string): FileVisuals {
-  switch (fileType) {
-    case "pdf":
-      return {
-        iconName: "file-text",
-        iconColor: colors.danger, // #EF4444
-        bgColor: "#FEF2F2",
-      };
-    case "image":
-      return {
-        iconName: "image",
-        iconColor: colors.success, // #22C55E
-        bgColor: "#F0FDF4",
-      };
-    case "doc":
-      return {
-        iconName: "file-text",
-        iconColor: "#3B82F6", // Blue
-        bgColor: "#EFF6FF",
-      };
-    case "other":
-    default:
-      return {
-        iconName: "file",
-        iconColor: colors.warning, // #F59E0B
-        bgColor: "#FEF3C7",
-      };
-  }
-}
-
-function formatAddedDate(dateStr: string): string {
-  try {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return "Today";
-    if (isYesterday(date)) return "Yesterday";
-    return formatDate(dateStr);
-  } catch {
-    return "Recent";
-  }
 }
 
 export default function DocumentCard({

@@ -3,6 +3,7 @@ import { DocumentFileType } from "@/types/document";
 import { Feather } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import type * as SharingType from "expo-sharing";
+import { requireOptionalNativeModule } from "expo-modules-core";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -46,7 +47,6 @@ async function openExternally(uri: string): Promise<void> {
   if (Platform.OS === "android") {
     let isIntentLauncherAvailable = false;
     try {
-      const { requireOptionalNativeModule } = require("expo-modules-core");
       isIntentLauncherAvailable = !!requireOptionalNativeModule("ExpoIntentLauncher");
     } catch {
       isIntentLauncherAvailable = false;
@@ -61,6 +61,7 @@ async function openExternally(uri: string): Promise<void> {
     }
 
     // Dynamically require expo-intent-launcher to avoid startup crashes on iOS/Web/Expo Go
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const IntentLauncher = require("expo-intent-launcher");
     // Convert file:// URI to content:// URI for Android
     const contentUri = await FileSystem.getContentUriAsync(uri);
@@ -73,6 +74,7 @@ async function openExternally(uri: string): Promise<void> {
     let isNativeSharingAvailable = false;
     let Sharing: typeof SharingType | null = null;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       Sharing = require("expo-sharing");
       isNativeSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
     } catch {

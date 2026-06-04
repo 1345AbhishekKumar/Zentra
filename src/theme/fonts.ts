@@ -4,6 +4,7 @@ export const fontAssets = {
   PlayfairDisplayItalic: require("../../assets/fonts/PlayfairDisplay-Italic.ttf"),
 };
 
+// fallow-ignore-next-line unused-export
 export const fontNames = {
   body: "Inter",
   display: "Outfit",

@@ -6,6 +6,8 @@ import {
   differenceInCalendarYears,
   startOfToday,
   compareAsc,
+  isToday,
+  isYesterday,
 } from "date-fns";
 import { ZentraDocument } from "@/types";
 
@@ -26,7 +28,7 @@ export function isExpired(expiryDate: string): boolean {
 /**
  * Returns true if the document expires within the given number of days
  */
-export function isExpiringSoon(expiryDate: string, withinDays: number): boolean {
+function isExpiringSoon(expiryDate: string, withinDays: number): boolean {
   const days = daysUntilExpiry(expiryDate);
   return days >= 0 && days <= withinDays;
 }
@@ -90,3 +92,32 @@ export function expiryUrgency(expiryDate: string): "expired" | "critical" | "war
   if (days <= 30) return "warning";
   return "safe";
 }
+
+/**
+ * Formats date added relative to today/yesterday or fallback to display format
+ */
+export function formatAddedDate(dateStr: string): string {
+  try {
+    const date = parseISO(dateStr);
+    if (isToday(date)) return "Today";
+    if (isYesterday(date)) return "Yesterday";
+    return formatDate(dateStr);
+  } catch {
+    return "Recent";
+  }
+}
+
+/**
+ * Formats an ISO date string into a localized date-time string (e.g. "10 May 2024, 09:00 AM")
+ */
+export function formatDateTime(dateStr: string): string {
+  return format(parseISO(dateStr), "d MMM yyyy, hh:mm a");
+}
+
+/**
+ * Returns the number of calendar days elapsed since a given date string
+ */
+export function daysSinceDate(dateStr: string): number {
+  return differenceInCalendarDays(startOfToday(), parseISO(dateStr));
+}
+

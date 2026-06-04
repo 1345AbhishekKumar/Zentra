@@ -1,81 +1,29 @@
 import ExpiryBadge from "@/components/ExpiryBadge";
 import EmptyState from "@/components/EmptyState";
 import FileViewer from "@/components/FileViewer";
-import NotificationToggle from "@/components/NotificationToggle";
 import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { useUser } from "@clerk/expo";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { format, parseISO } from "date-fns";
-import * as FileSystem from "expo-file-system/legacy";
+import { fileExists } from "@/lib/fileStorage";
 import { buildDocumentSummary, shareText, shareFile, shareDocumentDetailsHtml, downloadDocument } from "@/lib/share";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    AccessibilityInfo,
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  AccessibilityInfo,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
-
-interface FileVisuals {
-  iconName: FeatherIcon;
-  iconColor: string;
-  bgColor: string;
-}
-
-function getFileVisuals(fileType: string): FileVisuals {
-  switch (fileType) {
-    case "pdf":
-      return {
-        iconName: "file-text",
-        iconColor: colors.danger,
-        bgColor: "#FEF2F2",
-      };
-    case "image":
-      return {
-        iconName: "image",
-        iconColor: colors.success,
-        bgColor: "#F0FDF4",
-      };
-    case "doc":
-      return {
-        iconName: "file-text",
-        iconColor: "#3B82F6",
-        bgColor: "#EFF6FF",
-      };
-    case "other":
-    default:
-      return {
-        iconName: "file",
-        iconColor: colors.warning,
-        bgColor: "#FEF3C7",
-      };
-  }
-}
-
-function getFileTypeLabel(fileType: string): string {
-  switch (fileType) {
-    case "pdf":
-      return "PDF Document";
-    case "image":
-      return "Image File";
-    case "doc":
-      return "Word Document";
-    case "other":
-    default:
-      return "Document File";
-  }
-}
+import { getFileVisuals, getFileTypeLabel } from "@/lib/visuals";
+import DocumentInfoList from "@/components/DocumentInfoList";
 
 export default function DocumentDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -95,6 +43,7 @@ export default function DocumentDetailsScreen() {
   const [isMoveSheetVisible, setIsMoveSheetVisible] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [isShareSheetVisible, setIsShareSheetVisible] = useState(false);
+
   const goBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -132,15 +81,6 @@ export default function DocumentDetailsScreen() {
     `${clerkUser?.firstName || ""} ${clerkUser?.lastName || ""}`.trim();
   const creatorName = fullName || "Unknown";
 
-  // Date formatting helpers
-  const formatDateTime = (dateStr: string) => {
-    try {
-      return format(parseISO(dateStr), "d MMM yyyy, hh:mm a");
-    } catch {
-      return dateStr;
-    }
-  };
-
   const formattedAdded = formatDateTime(doc.createdAt);
   const formattedModified = formatDateTime(doc.updatedAt);
   const formattedExpiry = formatDate(doc.expiryDate);
@@ -149,8 +89,8 @@ export default function DocumentDetailsScreen() {
   const handleViewFile = async () => {
     if (!doc.localUri) return;
     try {
-      const info = await FileSystem.getInfoAsync(doc.localUri);
-      if (!info.exists) {
+      const exists = await fileExists(doc.localUri);
+      if (!exists) {
         Alert.alert(
           "File Not Found",
           "The attached file could not be found. It may have been moved or deleted from your device.",
@@ -278,135 +218,16 @@ export default function DocumentDetailsScreen() {
         </View>
 
         {/* Information Section */}
-        <View className="mt-8">
-          <Text className="text-h2 text-primary font-bold mb-4">
-            Information
-          </Text>
-          <View className="bg-surface rounded-2xl border border-border/40 overflow-hidden px-4">
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <View className="flex-row items-center">
-                <Feather
-                  name="file-text"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Type</Text>
-              </View>
-              <Text className="text-body-md text-primary font-medium">
-                {typeLabel}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <View className="flex-row items-center">
-                <Feather
-                  name="database"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Size</Text>
-              </View>
-              <Text className="text-body-md text-primary font-medium">
-                {sizeLabel}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <View className="flex-row items-center">
-                <Feather
-                  name="calendar"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Added on</Text>
-              </View>
-              <Text className="text-body-md text-primary font-medium">
-                {formattedAdded}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <View className="flex-row items-center">
-                <Feather
-                  name="clock"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Expiry Date</Text>
-              </View>
-              <Text className="text-body-md text-primary font-medium">
-                {formattedExpiry}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <NotificationToggle
-                documentId={doc.id}
-                enabled={doc.notificationsEnabled}
-                onToggle={async () => {
-                  await toggleNotification(doc.id);
-                }}
-                label="Notifications"
-                icon="bell"
-                iconSize={16}
-                iconColor="#8A8A8F"
-                textClassName="text-body-md text-secondary"
-                className="flex-row items-center justify-between w-full"
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <View className="flex-row items-center">
-                <Feather
-                  name="folder"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Location</Text>
-              </View>
-              <View className="bg-softAccent px-3 py-1 rounded-md">
-                <Text className="text-caption text-accent font-semibold">
-                  {doc.category}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row justify-between items-center py-4 border-b border-border/30">
-              <View className="flex-row items-center">
-                <Feather
-                  name="edit-3"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Modified on</Text>
-              </View>
-              <Text className="text-body-md text-primary font-medium">
-                {formattedModified}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center py-4">
-              <View className="flex-row items-center">
-                <Feather
-                  name="user"
-                  size={16}
-                  color="#8A8A8F"
-                  style={styles.infoIcon}
-                />
-                <Text className="text-body-md text-secondary">Created by</Text>
-              </View>
-              <Text className="text-body-md text-primary font-medium">
-                {creatorName}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <DocumentInfoList
+          doc={doc}
+          typeLabel={typeLabel}
+          sizeLabel={sizeLabel}
+          formattedAdded={formattedAdded}
+          formattedExpiry={formattedExpiry}
+          formattedModified={formattedModified}
+          creatorName={creatorName}
+          toggleNotification={toggleNotification}
+        />
 
         {/* Actions Section */}
         <View className="mt-8">
@@ -581,8 +402,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
-  },
-  infoIcon: {
-    marginRight: 12,
   },
 });

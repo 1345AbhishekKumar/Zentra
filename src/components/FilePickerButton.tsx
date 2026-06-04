@@ -5,6 +5,7 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 import React from "react";
 import { Alert, Linking, Text, View } from "react-native";
 import ScalePressable from "./ScalePressable";
+import { getFileVisuals } from "@/lib/visuals";
 
 export interface PickedFile {
   uri: string;
@@ -102,36 +103,6 @@ function formatBytes(bytes?: number): string {
   if (kb < 1024) return `${kb.toFixed(1)} KB`;
   const mb = kb / 1024;
   return `${mb.toFixed(1)} MB`;
-}
-
-function getFileVisuals(fileType: DocumentFileType) {
-  switch (fileType) {
-    case "pdf":
-      return {
-        iconName: "file-text" as const,
-        iconColor: colors.danger, // #EF4444
-        bgColor: "#FEF2F2",
-      };
-    case "image":
-      return {
-        iconName: "image" as const,
-        iconColor: colors.success, // #22C55E
-        bgColor: "#F0FDF4",
-      };
-    case "doc":
-      return {
-        iconName: "file-text" as const,
-        iconColor: "#3B82F6", // Blue
-        bgColor: "#EFF6FF",
-      };
-    case "other":
-    default:
-      return {
-        iconName: "file" as const,
-        iconColor: colors.warning, // #F59E0B
-        bgColor: "#FEF3C7",
-      };
-  }
 }
 
 export default function FilePickerButton({

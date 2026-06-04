@@ -9,19 +9,18 @@ import { DocumentCategory } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { cancelDocumentNotifications } from "@/lib/notifications";
 import ScalePressable from "@/components/ScalePressable";
 import { seedMockData } from "@/lib/seed";
 import {
-    AccessibilityInfo,
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  AccessibilityInfo,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
+import { useDocumentSelection } from "@/hooks/useDocumentSelection";
+import FolderModal from "@/components/FolderModal";
 
 export default function DocumentsScreen() {
   const router = useRouter();
@@ -32,9 +31,22 @@ export default function DocumentsScreen() {
     renameFolder,
     deleteFolder,
     toggleFavorite,
-    deleteMultipleDocuments,
-    deleteMultipleFolders,
   } = useDocumentStore();
+
+  // Custom hook for selection mode
+  const {
+    isSelectionMode,
+    selectedDocumentIds,
+    selectedFolderNames,
+    isBulkDeleteModalVisible,
+    setIsBulkDeleteModalVisible,
+    toggleDocumentSelection,
+    toggleFolderSelection,
+    handleStartSelectionWithDoc,
+    handleStartSelectionWithFolder,
+    handleExitSelection,
+    handleConfirmBulkDelete,
+  } = useDocumentSelection();
 
   // Local UI State
   const [selectedTab, setSelectedTab] = useState<
@@ -45,91 +57,30 @@ export default function DocumentsScreen() {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [sort, setSort] = useState<"name" | "expiry" | "added">("expiry");
 
-  // Selection Mode State
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(new Set());
-  const [selectedFolderNames, setSelectedFolderNames] = useState<Set<string>>(new Set());
-  const [isBulkDeleteModalVisible, setIsBulkDeleteModalVisible] = useState(false);
-
   // Folder Dialog Modal State
   const [isFolderModalVisible, setIsFolderModalVisible] = useState(false);
   const [folderModalMode, setFolderModalMode] = useState<"create" | "rename">("create");
   const [targetFolderName, setTargetFolderName] = useState("");
-  const [folderInputName, setFolderInputName] = useState("");
-  const [isFolderInputFocused, setIsFolderInputFocused] = useState(false);
   const [selectedFolderOptions, setSelectedFolderOptions] = useState<string | null>(null);
   const [isDeleteFolderModalVisible, setIsDeleteFolderModalVisible] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
 
-  // Selection Mode Helpers
-  const toggleDocumentSelection = (id: string) => {
-    setSelectedDocumentIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+  // Folder CRUD Save Handler
+  const handleSaveFolder = (name: string) => {
+    if (folderModalMode === "create") {
+      const success = addFolder(name);
+      if (!success) {
+        Alert.alert("Folder Exists", "A folder with this name already exists.");
+        return;
       }
-      return next;
-    });
-  };
-
-  const toggleFolderSelection = (name: string) => {
-    setSelectedFolderNames((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
+    } else {
+      const success = renameFolder(targetFolderName, name);
+      if (!success) {
+        Alert.alert("Folder Exists", "A folder with this name already exists.");
+        return;
       }
-      return next;
-    });
-  };
-
-  const handleStartSelectionWithDoc = (id: string) => {
-    setIsSelectionMode(true);
-    setSelectedDocumentIds(new Set([id]));
-    setSelectedFolderNames(new Set());
-  };
-
-  const handleStartSelectionWithFolder = (name: string) => {
-    setIsSelectionMode(true);
-    setSelectedFolderNames(new Set([name]));
-    setSelectedDocumentIds(new Set());
-  };
-
-  const handleExitSelection = () => {
-    setIsSelectionMode(false);
-    setSelectedDocumentIds(new Set());
-    setSelectedFolderNames(new Set());
-  };
-
-  const handleConfirmBulkDelete = async () => {
-    try {
-      const docIds = Array.from(selectedDocumentIds);
-      const folderNames = Array.from(selectedFolderNames);
-
-      // 1. Cancel notifications for each selected document
-      await Promise.all(docIds.map((id) => cancelDocumentNotifications(id)));
-
-      // 2. Call store actions
-      if (docIds.length > 0) {
-        deleteMultipleDocuments(docIds);
-      }
-      if (folderNames.length > 0) {
-        deleteMultipleFolders(folderNames);
-      }
-
-      // 3. Update accessibility announcements and state
-      AccessibilityInfo.announceForAccessibility(
-        `Deleted ${docIds.length} documents and ${folderNames.length} folders`
-      );
-    } catch (error) {
-      console.error("Bulk delete failed:", error);
-    } finally {
-      setIsBulkDeleteModalVisible(false);
-      handleExitSelection();
     }
+    setIsFolderModalVisible(false);
   };
 
   // Calculate category folder item counts dynamically (excluding soft-deleted documents)
@@ -156,35 +107,11 @@ export default function DocumentsScreen() {
     if (folderName) {
       setFolderModalMode("rename");
       setTargetFolderName(folderName);
-      setFolderInputName(folderName);
     } else {
       setFolderModalMode("create");
       setTargetFolderName("");
-      setFolderInputName("");
     }
     setIsFolderModalVisible(true);
-  };
-
-  const handleSaveFolder = () => {
-    const name = folderInputName.trim();
-    if (!name) {
-      Alert.alert("Validation Error", "Folder name cannot be empty.");
-      return;
-    }
-    if (folderModalMode === "create") {
-      const success = addFolder(name);
-      if (!success) {
-        Alert.alert("Folder Exists", "A folder with this name already exists.");
-        return;
-      }
-    } else {
-      const success = renameFolder(targetFolderName, name);
-      if (!success) {
-        Alert.alert("Folder Exists", "A folder with this name already exists.");
-        return;
-      }
-    }
-    setIsFolderModalVisible(false);
   };
 
   const handleFolderOptions = (folderName: string) => {
@@ -357,8 +284,6 @@ export default function DocumentsScreen() {
               </ScalePressable>
             </View>
           </View>
-
-
 
           {/* Filter Tabs (Horizontal Scroll) */}
           <View className="mb-6">
@@ -712,57 +637,13 @@ export default function DocumentsScreen() {
       </View>
 
       {/* Folder Create/Rename Custom Modal */}
-      <Modal
+      <FolderModal
         visible={isFolderModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsFolderModalVisible(false)}
-      >
-        <View style={styles.modalOverlay} className="flex-1 items-center justify-center px-6">
-          <View className="bg-surface w-full p-6 rounded-2xl border border-border/40" style={styles.listShadow}>
-            <Text className="text-h2 text-primary font-bold mb-4 font-display">
-              {folderModalMode === "create" ? "Create New Folder" : "Rename Folder"}
-            </Text>
-
-            <View className="mb-6">
-              <Text className="text-body-md text-primary font-semibold mb-2">Folder Name</Text>
-              <TextInput
-                value={folderInputName}
-                onChangeText={setFolderInputName}
-                onFocus={() => setIsFolderInputFocused(true)}
-                onBlur={() => setIsFolderInputFocused(false)}
-                accessibilityLabel="Folder name"
-                className={`w-full bg-background border-2 rounded-xl px-4 py-[11px] text-body-lg text-primary ${
-                  isFolderInputFocused ? "border-accent" : "border-border/40"
-                }`}
-                placeholder="e.g. Work Documents"
-                autoFocus
-                placeholderTextColor={colors.secondary}
-              />
-            </View>
-
-            <View className="flex-row gap-3">
-              <ScalePressable
-                onPress={() => setIsFolderModalVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel folder creation or rename"
-                className="flex-1 bg-background border border-border py-3.5 rounded-xl items-center justify-center active:opacity-75 min-h-[48px]"
-              >
-                <Text className="text-body-md font-bold text-primary font-display font-semibold">Cancel</Text>
-              </ScalePressable>
-              <ScalePressable
-                onPress={handleSaveFolder}
-                accessibilityRole="button"
-                className="flex-1 bg-accent py-3.5 rounded-xl items-center justify-center active:opacity-85 min-h-[48px]"
-              >
-                <Text className="text-body-md font-bold text-white font-display font-semibold">
-                  {folderModalMode === "create" ? "Create" : "Save"}
-                </Text>
-              </ScalePressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setIsFolderModalVisible(false)}
+        mode={folderModalMode}
+        initialName={targetFolderName}
+        onSave={handleSaveFolder}
+      />
 
       {/* Folder Options Action Sheet */}
       <ActionSheet
@@ -843,10 +724,6 @@ const styles = StyleSheet.create({
   },
   fabWrap: {
     zIndex: 50,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
   },
   bottomBarShadow: {
     shadowColor: "#000",

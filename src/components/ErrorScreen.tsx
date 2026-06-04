@@ -2,6 +2,7 @@ import { colors } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, Text, View, Platform, Alert } from "react-native";
+import { requireOptionalNativeModule } from "expo-modules-core";
 
 interface ErrorScreenProps {
   error: Error | null;
@@ -13,7 +14,6 @@ export default function ErrorScreen({ error, onReset }: ErrorScreenProps) {
     let isUpdatesAvailable = false;
     if (Platform.OS !== "web") {
       try {
-        const { requireOptionalNativeModule } = require("expo-modules-core");
         isUpdatesAvailable = !!requireOptionalNativeModule("ExpoUpdates");
       } catch {
         isUpdatesAvailable = false;
@@ -22,6 +22,7 @@ export default function ErrorScreen({ error, onReset }: ErrorScreenProps) {
 
     if (isUpdatesAvailable) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const Updates = require("expo-updates");
         await Updates.reloadAsync();
       } catch (e) {

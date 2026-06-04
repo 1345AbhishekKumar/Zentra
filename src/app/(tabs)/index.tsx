@@ -1,15 +1,13 @@
 import DashboardHeader from "@/components/DashboardHeader";
 import EmptyState from "@/components/EmptyState";
-import { formatDate, sortByExpiry } from "@/lib/date";
+import { sortByExpiry } from "@/lib/date";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
 import { Feather } from "@expo/vector-icons";
-import { isToday, isYesterday, parseISO } from "date-fns";
 import { useRouter } from "expo-router";
 import ActionSheet from "@/components/ActionSheet";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import ExpiryBadge from "@/components/ExpiryBadge";
 import ScalePressable from "@/components/ScalePressable";
 import React, { useMemo, useState } from "react";
 import { seedMockData } from "@/lib/seed";
@@ -22,251 +20,32 @@ import {
   Text,
   View,
 } from "react-native";
+import { useDocumentSelection } from "@/hooks/useDocumentSelection";
+import QuickAccessCard from "@/components/QuickAccessCard";
+import RecentDocRow from "@/components/RecentDocRow";
 
-// ---------------------------------------------------------------------------
-// Icon/color mapping by document name, then file type, then category
-// ---------------------------------------------------------------------------
-type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
-
-interface DocVisuals {
-  iconName: FeatherIcon;
-  iconColor: string;
-  bgColor: string;
-}
-
-const NAME_RULES: { match: string; visuals: DocVisuals }[] = [
-  {
-    match: "passport",
-    visuals: {
-      iconName: "globe",
-      iconColor: colors.accent,
-      bgColor: "#EEF2FF",
-    },
-  },
-  {
-    match: "insurance",
-    visuals: {
-      iconName: "shield",
-      iconColor: colors.accent,
-      bgColor: "#EEF2FF",
-    },
-  },
-  {
-    match: "certificate",
-    visuals: { iconName: "award", iconColor: "#7C3AED", bgColor: "#F5F3FF" },
-  },
-  {
-    match: "license",
-    visuals: {
-      iconName: "credit-card",
-      iconColor: "#3B82F6",
-      bgColor: "#EFF6FF",
-    },
-  },
-  {
-    match: "driving",
-    visuals: {
-      iconName: "credit-card",
-      iconColor: "#3B82F6",
-      bgColor: "#EFF6FF",
-    },
-  },
-];
-
-function getDocVisuals(
-  name: string,
-  _category: string,
-  fileType: string,
-): DocVisuals {
-  const lower = name.toLowerCase();
-  for (const rule of NAME_RULES) {
-    if (lower.includes(rule.match)) return rule.visuals;
-  }
-  if (fileType === "pdf")
-    return {
-      iconName: "file-text",
-      iconColor: colors.danger,
-      bgColor: "#FEF2F2",
-    };
-  if (fileType === "image")
-    return { iconName: "image", iconColor: colors.success, bgColor: "#F0FDF4" };
-  if (_category === "Finance")
-    return {
-      iconName: "dollar-sign",
-      iconColor: "#10B981",
-      bgColor: "#ECFDF5",
-    };
-  return { iconName: "file", iconColor: colors.secondary, bgColor: "#F5F5F5" };
-}
-
-// ---------------------------------------------------------------------------
-// Date formatting
-// ---------------------------------------------------------------------------
-function formatAddedDate(dateStr: string): string {
-  try {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return "Today";
-    if (isYesterday(date)) return "Yesterday";
-    return formatDate(dateStr);
-  } catch {
-    return "Recent";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Quick Access Card
-// ---------------------------------------------------------------------------
-function QuickAccessCard({
-  doc,
-  onPress,
-  isSelectionMode = false,
-  isSelected = false,
-  onLongPress,
-}: {
-  doc: ZentraDocument;
-  onPress: () => void;
-  isSelectionMode?: boolean;
-  isSelected?: boolean;
-  onLongPress?: () => void;
-}) {
-  const { iconName, iconColor, bgColor } = getDocVisuals(
-    doc.name,
-    doc.category,
-    doc.fileType,
-  );
-  const label = doc.name.replace(/\.[^/.]+$/, "");
-  const meta = `${doc.fileType.toUpperCase()} • ${doc.sizeLabel || "1.0 MB"}`;
-
-  return (
-    <ScalePressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={200}
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${doc.name}`}
-      className="bg-surface rounded-2xl p-4 mr-3 active:opacity-90"
-      style={styles.quickCard}
-    >
-      <View className="flex-row justify-between items-start mb-3">
-        <View
-          className="w-11 h-11 rounded-full items-center justify-center"
-          style={{ backgroundColor: bgColor }}
-        >
-          <Feather name={iconName} size={20} color={iconColor} />
-        </View>
-        {isSelectionMode && (
-          <View className="w-8 h-8 items-center justify-center">
-            <Feather
-              name={isSelected ? "check-circle" : "circle"}
-              size={20}
-              color={isSelected ? colors.accent : "#B3B3B3"}
-            />
-          </View>
-        )}
-      </View>
-      <Text numberOfLines={1} className="text-body-lg text-primary font-semibold">
-        {label}
-      </Text>
-      <Text className="text-caption text-secondary mt-1">{meta}</Text>
-    </ScalePressable>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Recent Document Row
-// ---------------------------------------------------------------------------
-function RecentDocRow({
-  doc,
-  isLast,
-  onPress,
-  onMorePress,
-  isSelectionMode = false,
-  isSelected = false,
-  onLongPress,
-  sortMode = "expiry",
-}: {
-  doc: ZentraDocument;
-  isLast: boolean;
-  onPress: () => void;
-  onMorePress: () => void;
-  isSelectionMode?: boolean;
-  isSelected?: boolean;
-  onLongPress?: () => void;
-  sortMode?: "added" | "expiry";
-}) {
-  const { iconName, iconColor, bgColor } = getDocVisuals(
-    doc.name,
-    doc.category,
-    doc.fileType,
-  );
-  const meta = `${formatAddedDate(doc.createdAt)} • ${doc.sizeLabel || "1.0 MB"}`;
-
-  return (
-    <ScalePressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={200}
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${doc.name}`}
-      className="flex-row items-center px-4 py-3 active:bg-background"
-      style={!isLast ? styles.rowBorder : undefined}
-      activeScale={0.98}
-    >
-      <View
-        className="w-11 h-11 rounded-xl items-center justify-center"
-        style={{ backgroundColor: bgColor }}
-      >
-        <Feather name={iconName} size={20} color={iconColor} />
-      </View>
-
-      <View className="flex-1 ml-3 mr-2">
-        <Text numberOfLines={1} className="text-body-lg text-primary font-medium">
-          {doc.name}
-        </Text>
-        <View className="flex-row items-center flex-wrap gap-2 mt-0.5">
-          <Text className="text-caption text-secondary">{meta}</Text>
-          {sortMode === "expiry" && (
-            <ExpiryBadge expiryDate={doc.expiryDate} hideSafe={false} />
-          )}
-        </View>
-      </View>
-
-      {isSelectionMode ? (
-        <View className="w-9 h-9 items-center justify-center mr-1">
-          <Feather
-            name={isSelected ? "check-circle" : "circle"}
-            size={22}
-            color={isSelected ? colors.accent : "#B3B3B3"}
-          />
-        </View>
-      ) : (
-        <Pressable
-          onPress={onMorePress}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={`More options for ${doc.name}`}
-          className="w-9 h-9 rounded-full items-center justify-center active:bg-soft-accent"
-        >
-          <Feather name="more-horizontal" size={20} color={colors.secondary} />
-        </Pressable>
-      )}
-    </ScalePressable>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Home Screen
-// ---------------------------------------------------------------------------
 export default function HomeScreen() {
   const router = useRouter();
   const {
     documents,
     deleteDocument,
-    deleteMultipleDocuments,
   } = useDocumentStore();
+
   const [selectedDoc, setSelectedDoc] = useState<ZentraDocument | null>(null);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [docToDelete, setDocToDelete] = useState<ZentraDocument | null>(null);
+
+  // Hook for selection mode
+  const {
+    isSelectionMode,
+    selectedDocumentIds,
+    isBulkDeleteModalVisible,
+    setIsBulkDeleteModalVisible,
+    toggleDocumentSelection,
+    handleStartSelectionWithDoc,
+    handleExitSelection,
+    handleConfirmBulkDelete,
+  } = useDocumentSelection();
 
   React.useEffect(() => {
     console.log("[Zentra Debug] Store documents count:", documents.length);
@@ -274,52 +53,6 @@ export default function HomeScreen() {
     console.log("[Zentra Debug] Store folders:", state.folders);
     console.log("[Zentra Debug] Store active documents:", documents.filter(d => !d.isDeleted).length);
   }, [documents]);
-
-  // Selection state
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(new Set());
-  const [isBulkDeleteModalVisible, setIsBulkDeleteModalVisible] = useState(false);
-
-  const toggleDocumentSelection = (id: string) => {
-    setSelectedDocumentIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const handleStartSelectionWithDoc = (id: string) => {
-    setIsSelectionMode(true);
-    setSelectedDocumentIds(new Set([id]));
-  };
-
-  const handleExitSelection = () => {
-    setIsSelectionMode(false);
-    setSelectedDocumentIds(new Set());
-  };
-
-  const handleConfirmBulkDelete = async () => {
-    try {
-      const docIds = Array.from(selectedDocumentIds);
-
-      // 1. Call store actions (which handles notification cancellation)
-      if (docIds.length > 0) {
-        await deleteMultipleDocuments(docIds);
-      }
-
-      // 2. Update accessibility announcements and state
-      AccessibilityInfo.announceForAccessibility(`Deleted ${docIds.length} documents`);
-    } catch (error) {
-      console.error("Bulk delete failed:", error);
-    } finally {
-      setIsBulkDeleteModalVisible(false);
-      handleExitSelection();
-    }
-  };
 
   const handleDeleteDoc = (doc: ZentraDocument) => {
     setDocToDelete(doc);
@@ -371,9 +104,6 @@ export default function HomeScreen() {
     }
   }, [canSeedDemo]);
 
-  // ------------------------------------------------------------------
-  // Render
-  // ------------------------------------------------------------------
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View className="flex-1 relative">
@@ -413,9 +143,7 @@ export default function HomeScreen() {
           </ScalePressable>
 
           {sorted.length === 0 ? (
-            // ---------------------------------------------------------------
             // Empty state
-            // ---------------------------------------------------------------
             <View className="px-6 pb-12">
               <EmptyState
                 icon="document-text-outline"
@@ -439,9 +167,7 @@ export default function HomeScreen() {
               )}
             </View>
           ) : (
-            // ---------------------------------------------------------------
             // Dashboard content
-            // ---------------------------------------------------------------
             <>
               {/* Quick Access */}
               {quickAccessDocs.length > 0 && (
@@ -579,15 +305,15 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View className="flex-row gap-2">
-              <Pressable
+              <ScalePressable
                 onPress={handleExitSelection}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel selection mode"
                 className="bg-background border border-border px-4 py-2.5 rounded-xl active:opacity-75 min-h-11 justify-center"
               >
                 <Text className="text-body-md font-semibold text-primary">Cancel</Text>
-              </Pressable>
-              <Pressable
+              </ScalePressable>
+              <ScalePressable
                 onPress={() => {
                   if (selectedDocumentIds.size === 0) {
                     Alert.alert("Nothing Selected", "Please select at least one document to delete.");
@@ -600,8 +326,8 @@ export default function HomeScreen() {
                 className="bg-danger px-4 py-2.5 rounded-xl flex-row items-center active:opacity-75 min-h-11 justify-center"
               >
                 <Feather name="trash-2" size={16} color="white" />
-                <Text className="text-body-md font-semibold text-white ml-2 font-semibold">Delete</Text>
-              </Pressable>
+                <Text className="text-body-md font-semibold text-white ml-2">Delete</Text>
+              </ScalePressable>
             </View>
           </View>
         )}
@@ -659,23 +385,7 @@ export default function HomeScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles that cannot be expressed via NativeWind (shadows, borders, z-index)
-// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
-  quickCard: {
-    width: 140,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: "#F0F0F2",
-  },
-  pressedScale: {
-    transform: [{ scale: 0.98 }],
-  },
   searchBtnShadow: {
     shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 2 },
@@ -691,10 +401,6 @@ const styles = StyleSheet.create({
     elevation: 1,
     borderWidth: 1,
     borderColor: "#F0F0F2",
-  },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F0F0F2",
   },
   fabWrap: {
     zIndex: 50,
