@@ -7,7 +7,7 @@ import ScalePressable from "./ScalePressable";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
-export interface ActionOption {
+interface ActionOption {
   label: string;
   icon: FeatherIconName;
   onPress: () => void;

@@ -180,19 +180,7 @@ export async function cancelAllNotifications(): Promise<void> {
   }
 }
 
-/**
- * Returns the full list of all scheduled notification requests.
- */
-export async function getScheduledNotifications(): Promise<
-  Notifications.NotificationRequest[]
-> {
-  try {
-    return await Notifications.getAllScheduledNotificationsAsync();
-  } catch (error) {
-    console.error("[Notifications] Failed to get scheduled notifications:", error);
-    return [];
-  }
-}
+
 
 /**
  * Compiles all potential notification triggers, sorts them chronologically (soonest first),
@@ -305,4 +293,29 @@ export async function syncAllNotifications(
   } catch (error) {
     console.error("[Notifications] Failed to sync notifications queue:", error);
   }
+}
+
+/**
+ * Wrapper for expo-notifications received listener.
+ */
+export function addNotificationReceivedListener(
+  listener: (notification: any) => void
+): { remove: () => void } {
+  return Notifications.addNotificationReceivedListener(listener);
+}
+
+/**
+ * Wrapper for expo-notifications response received listener.
+ */
+export function addNotificationResponseReceivedListener(
+  listener: (response: any) => void
+): { remove: () => void } {
+  return Notifications.addNotificationResponseReceivedListener(listener);
+}
+
+/**
+ * Wrapper for expo-notifications getting the last response.
+ */
+export async function getLastNotificationResponse(): Promise<any> {
+  return await Notifications.getLastNotificationResponseAsync();
 }

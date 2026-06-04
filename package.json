@@ -33,6 +33,7 @@
     "expo-system-ui": "~56.0.5",
     "expo-updates": "^56.0.17",
     "expo-web-browser": "~56.0.5",
+    "expo-modules-core": "~56.0.14",
     "nativewind": "^5.0.0-preview.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",

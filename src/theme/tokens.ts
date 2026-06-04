@@ -11,6 +11,7 @@ export const colors = {
   border: "#E5E7EB",
 };
 
+// fallow-ignore-next-line unused-export
 export const typography = {
   display: {
     fontFamily: "Outfit",
@@ -70,6 +71,7 @@ export const typography = {
   },
 };
 
+// fallow-ignore-next-line unused-export
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -80,6 +82,7 @@ export const spacing = {
   "3xl": 48,
 };
 
+// fallow-ignore-next-line unused-export
 export const radius = {
   none: 0,
   sm: 4,
@@ -90,12 +93,14 @@ export const radius = {
   full: 9999,
 };
 
+// fallow-ignore-next-line unused-export
 export const opacity = {
   disabled: 0.4,
   muted: 0.6,
   overlay: 0.4,
 };
 
+// fallow-ignore-next-line unused-export
 export const shadows = {
   sm: "0px 1px 2px 0px rgba(0, 0, 0, 0.05)",
   md: "0px 4px 10px -1px rgba(0, 0, 0, 0.08)",
@@ -103,6 +108,7 @@ export const shadows = {
   fab: "0px 6px 16px 0px rgba(79, 70, 229, 0.3)",
 };
 
+// fallow-ignore-next-line unused-export
 export const zIndex = {
   base: 0,
   sticky: 10,

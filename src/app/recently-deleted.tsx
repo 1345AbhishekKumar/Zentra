@@ -13,51 +13,13 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
-import { formatDate } from "@/lib/date";
+import { formatDate, daysSinceDate } from "@/lib/date";
 import EmptyState from "@/components/EmptyState";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { ZentraDocument } from "@/types";
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { getFileVisuals } from "@/lib/visuals";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-
-type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
-
-interface FileVisuals {
-  iconName: FeatherIcon;
-  iconColor: string;
-  bgColor: string;
-}
-
-function getFileVisuals(fileType: string): FileVisuals {
-  switch (fileType) {
-    case "pdf":
-      return {
-        iconName: "file-text",
-        iconColor: colors.danger,
-        bgColor: "#FEF2F2",
-      };
-    case "image":
-      return {
-        iconName: "image",
-        iconColor: colors.success,
-        bgColor: "#F0FDF4",
-      };
-    case "doc":
-      return {
-        iconName: "file-text",
-        iconColor: "#3B82F6",
-        bgColor: "#EFF6FF",
-      };
-    case "other":
-    default:
-      return {
-        iconName: "file",
-        iconColor: colors.warning,
-        bgColor: "#FEF3C7",
-      };
-  }
-}
 
 export default function RecentlyDeletedScreen() {
   const router = useRouter();
@@ -229,8 +191,7 @@ export default function RecentlyDeletedScreen() {
                 const isLast = index === deletedDocs.length - 1;
 
                 // Relative times calculations
-                const deletedAtDate = doc.deletedAt ? parseISO(doc.deletedAt) : new Date();
-                const daysDeleted = differenceInCalendarDays(new Date(), deletedAtDate);
+                const daysDeleted = doc.deletedAt ? daysSinceDate(doc.deletedAt) : 0;
                 const daysRemaining = Math.max(0, 30 - daysDeleted);
                 const deletedLabel = `Deleted ${daysDeleted} ${daysDeleted === 1 ? "day" : "days"} ago · Permanent in ${daysRemaining} ${daysRemaining === 1 ? "day" : "days"}`;
 

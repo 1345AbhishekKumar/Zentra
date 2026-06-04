@@ -5,48 +5,11 @@ import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDocumentStore } from "@/store/documentStore";
-import { daysUntilExpiry, formatDate, expiryUrgency, sortByExpiry } from "@/lib/date";
+import { daysUntilExpiry, formatDate, sortByExpiry } from "@/lib/date";
 import ExpiryBadge from "@/components/ExpiryBadge";
 import EmptyState from "@/components/EmptyState";
 import { ZentraDocument } from "@/types";
-
-type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
-
-interface FileVisuals {
-  iconName: FeatherIcon;
-  iconColor: string;
-  bgColor: string;
-}
-
-function getFileVisuals(fileType: string): FileVisuals {
-  switch (fileType) {
-    case "pdf":
-      return {
-        iconName: "file-text",
-        iconColor: colors.danger,
-        bgColor: "#FEF2F2",
-      };
-    case "image":
-      return {
-        iconName: "image",
-        iconColor: colors.success,
-        bgColor: "#F0FDF4",
-      };
-    case "doc":
-      return {
-        iconName: "file-text",
-        iconColor: "#3B82F6",
-        bgColor: "#EFF6FF",
-      };
-    case "other":
-    default:
-      return {
-        iconName: "file",
-        iconColor: colors.warning,
-        bgColor: "#FEF3C7",
-      };
-  }
-}
+import { getFileVisuals } from "@/lib/visuals";
 
 export default function AlertsScreen() {
   const router = useRouter();

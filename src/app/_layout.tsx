@@ -5,7 +5,11 @@ import { useDocumentStore } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
-import * as Notifications from "expo-notifications";
+import {
+  addNotificationReceivedListener,
+  addNotificationResponseReceivedListener,
+  getLastNotificationResponse,
+} from "@/lib/notifications";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View, AppState, Modal, Text, Pressable, StyleSheet } from "react-native";
@@ -76,13 +80,13 @@ function InitialLayout() {
   // Listener A — foreground notification received (no navigation)
   // Listener B — user taps a notification (background or active state)
   useEffect(() => {
-    const foregroundSub = Notifications.addNotificationReceivedListener(() => {
+    const foregroundSub = addNotificationReceivedListener(() => {
       // Optional: update bell badge dot on Home screen
       // No navigation — user is already in the app
     });
 
     const responseSub =
-      Notifications.addNotificationResponseReceivedListener((response) => {
+      addNotificationResponseReceivedListener((response) => {
         const documentId = response.notification.request.content.data
           ?.documentId as string | undefined;
         if (documentId) {
@@ -109,7 +113,7 @@ function InitialLayout() {
 
     void (async () => {
       const lastResponse =
-        await Notifications.getLastNotificationResponseAsync();
+        await getLastNotificationResponse();
       if (!lastResponse) return;
 
       const documentId = lastResponse.notification.request.content.data

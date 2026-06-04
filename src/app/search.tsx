@@ -11,63 +11,13 @@ import { useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { isToday, isYesterday, parseISO } from "date-fns";
 
 import { useDocumentStore } from "@/store/documentStore";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatAddedDate } from "@/lib/date";
 import { colors } from "@/theme/tokens";
 import EmptyState from "@/components/EmptyState";
 import ExpiryBadge from "@/components/ExpiryBadge";
-import { ZentraDocument } from "@/types";
-
-type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
-
-interface FileVisuals {
-  iconName: FeatherIcon;
-  iconColor: string;
-  bgColor: string;
-}
-
-function getFileVisuals(fileType: string): FileVisuals {
-  switch (fileType) {
-    case "pdf":
-      return {
-        iconName: "file-text",
-        iconColor: colors.danger,
-        bgColor: "#FEF2F2",
-      };
-    case "image":
-      return {
-        iconName: "image",
-        iconColor: colors.success,
-        bgColor: "#F0FDF4",
-      };
-    case "doc":
-      return {
-        iconName: "file-text",
-        iconColor: "#3B82F6",
-        bgColor: "#EFF6FF",
-      };
-    case "other":
-    default:
-      return {
-        iconName: "file",
-        iconColor: colors.warning,
-        bgColor: "#FEF3C7",
-      };
-  }
-}
-
-function formatAddedDate(dateStr: string): string {
-  try {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return "Today";
-    if (isYesterday(date)) return "Yesterday";
-    return formatDate(dateStr);
-  } catch {
-    return "Recent";
-  }
-}
+import { getFileVisuals } from "@/lib/visuals";
 
 // Custom text highlighter to bold the matching substring
 function HighlightedText({ text, query }: { text: string; query: string }) {
