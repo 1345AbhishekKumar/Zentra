@@ -295,3 +295,102 @@ ESLint raised a warning in [documentStore.ts](file:///d:/MyProjects/Expo_Project
 ## Verification
 - **ESLint Validation**: `bun run lint` completed successfully with 0 warnings or errors.
 
+---
+
+# Report: App Lock Bypass during Native Transitions & Cold Start Lock
+
+## Problem Overview
+When App Lock is enabled, the root AppState change listener triggers the lock screen overlay upon background-to-foreground transitions. Since launching system pickers (camera, photo gallery, document picker), sharing sheets, SAF folder pickers, or opening files in external viewers forces the app to go into the background/inactive state, returning to the app immediately triggers the biometric lock screen. This interrupts user operations and creates an irritating user experience. Additionally, the app lock did not trigger on cold start, allowing users to enter the vault without passing authentication when launching the app from a terminated state.
+
+## Solution Architecture
+1. **AppState-based Bypass Mechanism (`withIgnoreAppLock`)**:
+   - Introduced a module-level `ignoreNextLock` flag and a helper function `withIgnoreAppLock` in `useAppLock.ts`.
+   - Before launching any native sheets, the code wraps the promise in `withIgnoreAppLock`. It flags the lock screen to be ignored on the next transition.
+   - Listens to `AppState` changes to ensure that if the app never left the foreground (e.g., in web mode, mock picker sandbox mode, or permission denials), it immediately resets the flag so the next real backgrounding locks the app.
+   - Includes a 5-minute safety timeout after which the bypass is automatically revoked.
+2. **Flag Consumption in Root Layout**:
+   - In `_layout.tsx`, if a foreground transition occurs and `shouldIgnoreAppLock()` is true, the flag is consumed and reset to `false`, and the lock screen is bypassed. Otherwise, it prompts for authentication as usual.
+3. **Cold Start Verification**:
+   - Configured a startup `useEffect` in `_layout.tsx` that runs once the Zustand store hydrates and Clerk auth loads. It reads `zentra_app_lock_enabled` directly from AsyncStorage, locking the screen and prompting for biometric authentication if enabled.
+4. **Surgical Integration**:
+   - Wrapped native pickers in `FilePickerButton.tsx` (camera, gallery, file attachment) and `useProfilePhoto.ts` (profile camera/gallery uploads).
+   - Wrapped file sharing, HTML generating, backup export, and Android SAF download helpers in `share.ts`.
+   - Wrapped backup JSON file picking in `import-data.tsx`.
+   - Wrapped external default app launching in `FileViewer.tsx`.
+
+## Files Modified & Created
+- [useAppLock.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/hooks/useAppLock.ts)
+- [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/_layout.tsx)
+- [FilePickerButton.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/FilePickerButton.tsx)
+- [useProfilePhoto.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/hooks/useProfilePhoto.ts)
+- [share.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/share.ts)
+- [import-data.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/import-data.tsx)
+- [FileViewer.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/FileViewer.tsx)
+
+## Verification
+- **TypeScript Compiler Check**: `bunx tsc --noEmit` completed with 0 errors.
+- **ESLint Validation**: `bun run lint` completed successfully with 0 warnings or errors.
+- **Fallow Static Analysis**: `npx fallow` completed and verified no unused exports or dead imports from our changes.
+
+---
+
+# Report: Local On-Device OCR Scanning & Auto-Fill
+
+## Problem Overview
+Implement a local, privacy-first document scanning and auto-fill feature. When a user attaches an image of a document (e.g., passport, license, insurance card), Zentra should automatically scan the image on-device to extract key details like the document name, expiry date, and category, and prompt the user to auto-fill the form fields.
+
+## Solution Architecture
+1. **On-Device OCR Engine**: Integrated the `@react-native-ml-kit/text-recognition` library. This ensures that text recognition runs entirely on the device CPU/GPU without sending images or data to any external server, fully respecting Zentra's privacy-first core rule.
+2. **Sandbox Fallback Mode**: Designed the OCR module (`src/lib/ocr.ts`) to dynamically check for native module availability. If run on the web, simulator, or Expo Go where native ML Kit binaries are missing, the app triggers a simulated OCR output (based on the attached filename). This ensures the app never crashes and developers can test the end-to-end scanning flow in any environment.
+3. **Regex & Heuristic Parsing**:
+   - **Date Extraction**: Extracts all candidate dates using regex pattern matching. Filters for dates in the future and prioritizes dates located near expiry keywords (e.g., `"expiry"`, `"expires"`, `"valid to"`, `"valido"`).
+   - **Category Mapping**: Maps documents to default folders (`Personal`, `Health`, `Finance`, `Work`, `Other`) by analyzing occurrences of keyword clusters.
+   - **Name Parsing**: Extracts the title from the top lines of the document or cleans up the original filename.
+4. **UX Integration**:
+   - Added an `isScanning` loading state in `AddDocumentForm.tsx`.
+   - Rendered a premium pulsating progress card while OCR runs, preventing form submissions mid-scan.
+   - Used Zentra's unified `showAlert` action store to ask the user if they wish to apply the parsed results before updating form values.
+
+## Files Modified & Created
+- **Created OCR Module**:
+  - [ocr.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/ocr.ts)
+- **Modified Component**:
+  - [AddDocumentForm.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/AddDocumentForm.tsx)
+
+## Verification
+- **TypeScript Check**: `bunx tsc --noEmit` completed with 0 errors.
+- **ESLint**: `bun run lint` completed successfully with 0 errors/warnings on the entire codebase.
+- **Fallow Static Analysis**: `npx fallow` validated clean.
+
+---
+
+# Report: Custom Mascot Bottom Tab Icon
+
+## Problem Overview
+Replace the default Feather `file-text` icon in the bottom tab bar navigation (home, documents, calendar, profile) with a custom SVG mascot of "Foldie" (a friendly blue document mascot with a folded corner smiling). The solution must not depend on native `react-native-svg` views (like `RNSVGRect`) which are not compiled in the active development client binary.
+
+## Solution Architecture
+1. **Created Mascot Component**: Built `FoldieIcon.tsx` inside `src/components/mascots/` using native React Native `<View>` components instead of `<Svg>` paths. The document shapes, borders, sizes, and rotation angles are mathematically mapped to standard styled React Native boxes:
+   - **Body**: A absolute `<View>` with border radius `90`, height `380`, and width `340` with 16px borders.
+   - **Corner Fold**: A absolute `<View>` with border radius `40`, height `140`, and width `140`, rotated 20 degrees.
+   - **Face (Eyes)**: Circular views (`borderRadius: 22`) placed at matching offsets.
+   - **Face (Smile)**: A circular view (`borderRadius: 46`) using border-bottom styling to create a clean curved stroke.
+   - **Scale Handling**: Centered inside a parent view with size `size`x`size` and scaled dynamically by `size / 512` so the layout remains unaffected.
+2. **Tab Bar Color & Focus Compliance**: 
+   - When the Documents tab is selected (`focused === true`), the component displays the mascot in its full, premium brand colors: trustBlue (`#3A86FF`) for the body, warmWhite (`#F9F9F6`) for the folded corner, and deepCharcoal (`#1A1A1A`) for details and outlines.
+   - When inactive (`focused === false`), the component renders as a clean outline (transparent fills) with stroke matching the inactive tab tint color (`#737373`), ensuring visual unity and alignment with other Feather bottom tab icons.
+3. **Layout Integration**: Modified `src/app/(tabs)/_layout.tsx` to mount `<FoldieIcon>` inside the tab bar icon renderer.
+
+## Files Modified & Created
+- **Created Mascot Icon**:
+  - [FoldieIcon.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/mascots/FoldieIcon.tsx)
+- **Modified Layout**:
+  - [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/(tabs)/_layout.tsx)
+
+## Verification
+- **TypeScript**: `bunx tsc --noEmit` compiler checks passed with 0 errors.
+- **ESLint**: `bun run lint` successfully verified with 0 errors/warnings.
+- **Fallow Static Analysis**: `npx fallow` validated clean.
+
+
+

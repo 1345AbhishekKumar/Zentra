@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Linking } from "react-native";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { showAlert } from "@/store/alertStore";
+import { withIgnoreAppLock } from "./useAppLock";
 
 interface GlobalWithNativeFlags {
   __isImagePickerNativeAvailable?: boolean;
@@ -88,12 +89,14 @@ export function useProfilePhoto(user: any) {
         return;
       }
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.6,
-        base64: true,
+      const result = await withIgnoreAppLock(async () => {
+        return await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.6,
+          base64: true,
+        });
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -162,12 +165,14 @@ export function useProfilePhoto(user: any) {
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.6,
-        base64: true,
+      const result = await withIgnoreAppLock(async () => {
+        return await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.6,
+          base64: true,
+        });
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {

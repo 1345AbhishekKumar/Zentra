@@ -7,6 +7,7 @@ import { Linking, Text, View } from "react-native";
 import ScalePressable from "./ScalePressable";
 import { getFileVisuals } from "@/lib/visuals";
 import { showAlert } from "@/store/alertStore";
+import { withIgnoreAppLock } from "@/hooks/useAppLock";
 
 export interface PickedFile {
   uri: string;
@@ -184,10 +185,12 @@ export default function FilePickerButton({
       const hasPermission = await requestCameraPermission();
       if (!hasPermission) return;
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
+      const result = await withIgnoreAppLock(async () => {
+        return await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -234,10 +237,12 @@ export default function FilePickerButton({
       const hasPermission = await requestMediaLibraryPermission();
       if (!hasPermission) return;
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
+      const result = await withIgnoreAppLock(async () => {
+        return await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.8,
+        });
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -281,9 +286,11 @@ export default function FilePickerButton({
         return;
       }
 
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
-        copyToCacheDirectory: true,
+      const result = await withIgnoreAppLock(async () => {
+        return await DocumentPicker.getDocumentAsync({
+          type: "*/*",
+          copyToCacheDirectory: true,
+        });
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {

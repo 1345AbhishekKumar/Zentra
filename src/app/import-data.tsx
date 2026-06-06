@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDocumentStore } from "@/store/documentStore";
 import * as FileSystem from "expo-file-system/legacy";
 import { requireOptionalNativeModule } from "expo-modules-core";
+import { withIgnoreAppLock } from "@/hooks/useAppLock";
 
 const isDocumentPickerNativeAvailable =
   typeof (globalThis as any).__isDocumentPickerNativeAvailable === "boolean"
@@ -153,9 +154,11 @@ export default function ImportDataScreen() {
         return;
       }
 
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "application/json",
-        copyToCacheDirectory: true,
+      const result = await withIgnoreAppLock(async () => {
+        return await DocumentPicker.getDocumentAsync({
+          type: "application/json",
+          copyToCacheDirectory: true,
+        });
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {

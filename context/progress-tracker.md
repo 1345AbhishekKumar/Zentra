@@ -4,6 +4,19 @@
 - **Phase**: UI polish, premium micro-animations, and UX enhancement.
 
 ## Completed Work
+- **Custom Mascot Tab Icon (Foldie)**:
+  - Created a reusable `<FoldieIcon>` component inside [FoldieIcon.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/mascots/FoldieIcon.tsx) using native React Native `<View>` components instead of `react-native-svg`. This avoids dependency on native modules and prevents crashes in development clients without the linked SVG library.
+  - Implemented color states in `<FoldieIcon>`: active/focused displays the full colored brand identity (trustBlue, warmWhite, deepCharcoal), while inactive adapts to a transparent fill with a `#737373` stroke.
+  - Integrated `<FoldieIcon>` into the bottom tab layout in [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/(tabs)/_layout.tsx), replacing the generic Feather `file-text` icon.
+- **App Lock Bypass during Native Transitions & Cold Start Lock**:
+  - Implemented bypass mechanism (`withIgnoreAppLock`) in [useAppLock.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/hooks/useAppLock.ts) to temporarily pause lock triggers when launching external native system pickers and sharing menus.
+  - Configured root AppState change listener in [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/_layout.tsx) to consume the ignore flag.
+  - Implemented cold start app lock verification in [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/_layout.tsx) to check AsyncStorage for `zentra_app_lock_enabled` on boot (after Zustand store hydrates and Clerk auth loads) and force user authentication.
+  - Wrapped native camera, photo gallery, and document picker actions inside [FilePickerButton.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/FilePickerButton.tsx) and [useProfilePhoto.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/hooks/useProfilePhoto.ts).
+  - Wrapped file sharing, HTML template sharing, SAF downloading, and JSON backup exports inside [share.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/share.ts).
+  - Wrapped backup import picker in [import-data.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/import-data.tsx).
+  - Wrapped external PDF/Doc default viewer launch in [FileViewer.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/FileViewer.tsx).
+  - Verified 100% type safety (`bunx tsc --noEmit`) and linter compliance (`bun run lint`).
 - **Calendar Screen (Replacing Collections Tab)**:
   - Renamed the placeholder `collections` tab to `calendar`.
   - Configured tab bar layout in `_layout.tsx` to mount the Calendar view with a Feather `calendar` icon.
@@ -69,10 +82,16 @@
   - Resolved all remaining ESLint warnings regarding unused tokens in dialog screens and modals.
   - Verified 100% type safety and linter cleanliness with `bunx tsc --noEmit` and `expo lint`.
   - Updated `report.md` with complete documentation for the styling alignment and vault manager refactor.
+- **Local On-Device OCR Scanning & Auto-Fill**:
+  - Installed `@react-native-ml-kit/text-recognition` package to run 100% offline text extraction on-device.
+  - Created [ocr.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/ocr.ts) utility mapping regex-based date extractors, keyword category selectors, and title normalizers, alongside a robust Sandbox Mock mode for Expo Go / Web testing.
+  - Modified [AddDocumentForm.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/AddDocumentForm.tsx) to coordinate scanning triggers, display premium loading indicators, block submit button during scan, and prompt users with a confirmation alert before filling in parsed values.
+  - Verified type safety and lint cleanliness with `bunx tsc --noEmit` and `bun run lint` (0 errors, 0 warnings).
 
 ## Open Questions
 - None.
 
 ## Next Steps
-1. Perform interactive testing on local devices to verify the new sharing, downloading, and data export helper flows.
+1. Perform interactive testing on local devices to verify the on-device OCR scanning and auto-fill suggestion prompts.
 2. Review notifications and expiry badges with the full 76 seeded documents list.
+

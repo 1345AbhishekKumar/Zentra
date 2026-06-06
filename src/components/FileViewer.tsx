@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import type * as SharingType from "expo-sharing";
 import { requireOptionalNativeModule } from "expo-modules-core";
+import { withIgnoreAppLock } from "@/hooks/useAppLock";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -44,62 +45,64 @@ interface FileViewerProps {
  * Uses IntentLauncher on Android, Sharing on iOS.
  */
 async function openExternally(uri: string): Promise<void> {
-  if (Platform.OS === "android") {
-    let isIntentLauncherAvailable = false;
-    try {
-      isIntentLauncherAvailable = !!requireOptionalNativeModule("ExpoIntentLauncher");
-    } catch {
-      isIntentLauncherAvailable = false;
-    }
-
-    if (!isIntentLauncherAvailable) {
-      showAlert(
-        "Viewer Unavailable",
-        "No internal viewer is available on this device/environment. Please install a PDF/document viewer app.",
-        "warning"
-      );
-      return;
-    }
-
-    // Dynamically require expo-intent-launcher to avoid startup crashes on iOS/Web/Expo Go
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const IntentLauncher = require("expo-intent-launcher");
-    // Convert file:// URI to content:// URI for Android
-    const contentUri = await FileSystem.getContentUriAsync(uri);
-    await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-      data: contentUri,
-      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-    });
-  } else {
-    // iOS — use sharing to open in default app
-    let isNativeSharingAvailable = false;
-    let Sharing: typeof SharingType | null = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      Sharing = require("expo-sharing");
-      isNativeSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-    } catch {
-      isNativeSharingAvailable = false;
-    }
-
-    if (isNativeSharingAvailable && Sharing) {
-      await Sharing.shareAsync(uri);
-    } else {
-      // Fallback to React Native's built-in Share module on iOS
+  await withIgnoreAppLock(async () => {
+    if (Platform.OS === "android") {
+      let isIntentLauncherAvailable = false;
       try {
-        await Share.share({
-          url: uri,
-        });
-      } catch (error) {
-        console.error("RN Share fallback failed:", error);
+        isIntentLauncherAvailable = !!requireOptionalNativeModule("ExpoIntentLauncher");
+      } catch {
+        isIntentLauncherAvailable = false;
+      }
+
+      if (!isIntentLauncherAvailable) {
         showAlert(
           "Viewer Unavailable",
-          "Unable to open or share this file on this device/environment.",
-          "error"
+          "No internal viewer is available on this device/environment. Please install a PDF/document viewer app.",
+          "warning"
         );
+        return;
+      }
+
+      // Dynamically require expo-intent-launcher to avoid startup crashes on iOS/Web/Expo Go
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const IntentLauncher = require("expo-intent-launcher");
+      // Convert file:// URI to content:// URI for Android
+      const contentUri = await FileSystem.getContentUriAsync(uri);
+      await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+        data: contentUri,
+        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      });
+    } else {
+      // iOS — use sharing to open in default app
+      let isNativeSharingAvailable = false;
+      let Sharing: typeof SharingType | null = null;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        Sharing = require("expo-sharing");
+        isNativeSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
+      } catch {
+        isNativeSharingAvailable = false;
+      }
+
+      if (isNativeSharingAvailable && Sharing) {
+        await Sharing.shareAsync(uri);
+      } else {
+        // Fallback to React Native's built-in Share module on iOS
+        try {
+          await Share.share({
+            url: uri,
+          });
+        } catch (error) {
+          console.error("RN Share fallback failed:", error);
+          showAlert(
+            "Viewer Unavailable",
+            "Unable to open or share this file on this device/environment.",
+            "error"
+          );
+        }
       }
     }
-  }
+  });
 }
 
 /**
