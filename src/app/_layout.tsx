@@ -17,7 +17,8 @@ import "../global.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Image } from "expo-image";
 import { images } from "@/constants/images";
-import { useAppLock } from "@/hooks/useAppLock";
+import { useAppLock, shouldIgnoreAppLock, setIgnoreAppLock } from "@/hooks/useAppLock";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import CustomAlert from "@/components/CustomAlert";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
@@ -129,6 +130,33 @@ function InitialLayout() {
     })();
   }, [_hasHydrated, isLoaded, router]);
 
+  const coldStartLockChecked = useRef(false);
+
+  // Handle cold start app lock
+  useEffect(() => {
+    const checkColdStartLock = async () => {
+      try {
+        const val = await AsyncStorage.getItem("zentra_app_lock_enabled");
+        const lockEnabled = val === "true";
+        const isAuthRoute = segments[0] === "(auth)";
+        if (lockEnabled && isSignedIn && !isAuthRoute) {
+          setIsLocked(true);
+          const success = await authenticate();
+          if (success) {
+            setIsLocked(false);
+          }
+        }
+      } catch (err) {
+        console.error("[RootLayout] Failed to check cold start lock:", err);
+      }
+    };
+
+    if (_hasHydrated && isLoaded && !coldStartLockChecked.current) {
+      coldStartLockChecked.current = true;
+      checkColdStartLock();
+    }
+  }, [_hasHydrated, isLoaded, isSignedIn, segments, authenticate]);
+
   // AppState listening for foregrounding transitions
   useEffect(() => {
     const subscription = AppState.addEventListener("change", async (nextAppState) => {
@@ -147,12 +175,16 @@ function InitialLayout() {
         }
 
         if (!isInitialLaunch.current) {
-          const isAuthRoute = segments[0] === "(auth)";
-          if (isLockEnabled && isSignedIn && !isAuthRoute) {
-            setIsLocked(true);
-            const success = await authenticate();
-            if (success) {
-              setIsLocked(false);
+          if (shouldIgnoreAppLock()) {
+            setIgnoreAppLock(false);
+          } else {
+            const isAuthRoute = segments[0] === "(auth)";
+            if (isLockEnabled && isSignedIn && !isAuthRoute) {
+              setIsLocked(true);
+              const success = await authenticate();
+              if (success) {
+                setIsLocked(false);
+              }
             }
           }
         }

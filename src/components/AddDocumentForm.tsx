@@ -6,12 +6,16 @@ import { DocumentCategory, DocumentFileType, ZentraDocument } from "@/types";
 import { isValid, parseISO, startOfDay, startOfToday } from "date-fns";
 import { useState } from "react";
 import {
+    ActivityIndicator,
     ScrollView,
     Text,
     TextInput,
     View,
 } from "react-native";
 import ScalePressable from "./ScalePressable";
+import { extractTextFromImage, parseDocumentDetails } from "@/lib/ocr";
+import { showAlert } from "@/store/alertStore";
+import { formatDate } from "@/lib/date";
 
 interface AddDocumentFormProps {
   onSubmit: (doc: ZentraDocument) => void;
@@ -112,6 +116,7 @@ export default function AddDocumentForm({
   const [fileName, setFileName] = useState<string | undefined>(
     initialValues?.localUri ? initialValues.name : undefined,
   );
+  const [isScanning, setIsScanning] = useState(false);
 
   // Active focus element state
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -124,7 +129,7 @@ export default function AddDocumentForm({
     {},
   );
 
-  const handleFilePicked = (file: PickedFile | null) => {
+  const handleFilePicked = async (file: PickedFile | null) => {
     if (file) {
       setLocalUri(file.uri);
       setFileName(file.name);
@@ -134,6 +139,56 @@ export default function AddDocumentForm({
         setName(file.name);
         if (errors.name) {
           setErrors((prev) => ({ ...prev, name: undefined }));
+        }
+      }
+
+      // Automatically scan the attached image for details
+      if (file.fileType === "image") {
+        try {
+          setIsScanning(true);
+          const rawText = await extractTextFromImage(file.uri, file.name);
+          const parsed = parseDocumentDetails(rawText, file.name);
+
+          // Only suggest auto-fill if we extracted meaningful fields
+          if (parsed.name || parsed.expiryDate) {
+            const displayDate = parsed.expiryDate ? parsed.expiryDate : "None found";
+            const displayName = parsed.name || "None found";
+
+            let dateText = displayDate;
+            if (parsed.expiryDate) {
+              try {
+                dateText = formatDate(parsed.expiryDate);
+              } catch {
+                // fallback
+              }
+            }
+
+            showAlert(
+              "Auto-Fill Document Details?",
+              `We scanned your document image locally. Do you want to auto-fill these fields?\n\n• Name: "${displayName}"\n• Expiry Date: ${dateText}\n• Category: ${parsed.category || "No change"}`,
+              "info",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Auto-Fill",
+                  onPress: () => {
+                    if (parsed.name) setName(parsed.name);
+                    if (parsed.expiryDate) {
+                      setExpiryDate(parsed.expiryDate);
+                      if (errors.expiryDate) {
+                        setErrors((prev) => ({ ...prev, expiryDate: undefined }));
+                      }
+                    }
+                    if (parsed.category) setCategory(parsed.category);
+                  },
+                },
+              ]
+            );
+          }
+        } catch (error) {
+          console.error("Local document scanning failed:", error);
+        } finally {
+          setIsScanning(false);
         }
       }
     } else {
@@ -364,6 +419,15 @@ export default function AddDocumentForm({
           fileType={fileType}
         />
 
+        {isScanning && (
+          <View className="mb-4 bg-soft-accent border border-accent/20 rounded-xl p-4 flex-row items-center justify-center animate-pulse">
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text className="text-body-md text-accent font-semibold ml-2">
+              Scanning document locally for details...
+            </Text>
+          </View>
+        )}
+
         {/* Notes */}
         <View className="mb-4">
           <Text className="text-body-md text-primary font-semibold mb-2">
@@ -415,11 +479,12 @@ export default function AddDocumentForm({
           </ScalePressable>
 
           <ScalePressable
+            disabled={isScanning}
             onPress={handleSave}
             accessibilityRole="button"
             accessibilityLabel={initialValues ? "Update document details" : "Save document details"}
             className="h-[52px] bg-accent rounded-xl items-center justify-center active:opacity-95 px-6"
-            style={{ flex: 2 }}
+            style={{ flex: 2, opacity: isScanning ? 0.5 : 1 }}
           >
             <Text className="text-button text-white font-semibold">
               {initialValues ? "Update Document" : "Save Document"}

@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FoldieIcon from "@/components/mascots/FoldieIcon";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -45,8 +46,8 @@ export default function TabLayout() {
         name="documents"
         options={{
           title: "Documents",
-          tabBarIcon: ({ color }) => (
-            <Feather name="file-text" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <FoldieIcon color={color} focused={focused} size={24} />
           ),
         }}
       />

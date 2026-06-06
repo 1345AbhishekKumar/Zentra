@@ -12,6 +12,7 @@ import {
 } from "./fileStorage";
 import type * as SharingType from "expo-sharing";
 import { requireOptionalNativeModule } from "expo-modules-core";
+import { withIgnoreAppLock } from "@/hooks/useAppLock";
 
 // Modular Imports
 import { mimeTypeFor } from "./share/mime";
@@ -64,7 +65,9 @@ export async function shareText(title: string, message: string): Promise<void> {
       }
       return;
     }
-    await Share.share({ title, message });
+    await withIgnoreAppLock(async () => {
+      await Share.share({ title, message });
+    });
   } catch (error) {
     console.error("[shareText] Failed to share text:", error);
   }
@@ -88,23 +91,25 @@ export async function shareFile(uri: string, filename: string, fileType: Documen
 
     const Sharing = getSharingModule();
     const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-    if (Sharing && isSharingAvailable) {
-      await Sharing.shareAsync(uri, {
-        mimeType: mimeTypeFor(fileType, uri),
-        dialogTitle: filename,
-      });
-    } else {
-      // Fallback to React Native Share API
-      if (Platform.OS === "ios") {
-        await Share.share({ url: uri });
+    await withIgnoreAppLock(async () => {
+      if (Sharing && isSharingAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: mimeTypeFor(fileType, uri),
+          dialogTitle: filename,
+        });
       } else {
-        showAlert(
-          "File Sharing Unavailable",
-          "Sharing raw files is not supported on this environment/device.",
-          "warning"
-        );
+        // Fallback to React Native Share API
+        if (Platform.OS === "ios") {
+          await Share.share({ url: uri });
+        } else {
+          showAlert(
+            "File Sharing Unavailable",
+            "Sharing raw files is not supported on this environment/device.",
+            "warning"
+          );
+        }
       }
-    }
+    });
   } catch (error) {
     console.error("[shareFile] Failed to share file:", error);
     showAlert("Sharing Failed", "An error occurred while sharing the file.", "error");
@@ -145,30 +150,32 @@ export async function shareDocumentDetailsHtml(doc: ZentraDocument): Promise<voi
     const tempUri = getCacheUri(`${doc.name.replace(/\.[^/.]+$/, "")}_details.html`);
     await writeString(tempUri, htmlContent);
 
-    if (Sharing && isSharingAvailable) {
-      await Sharing.shareAsync(tempUri, {
-        mimeType: "text/html",
-        dialogTitle: `${doc.name} Details`,
-      });
-    } else {
-      if (Platform.OS === "ios") {
-        await Share.share({ url: tempUri });
+    await withIgnoreAppLock(async () => {
+      if (Sharing && isSharingAvailable) {
+        await Sharing.shareAsync(tempUri, {
+          mimeType: "text/html",
+          dialogTitle: `${doc.name} Details`,
+        });
       } else {
-        const summary = buildDocumentSummary(doc);
-        showAlert(
-          "Rich Sharing Unavailable",
-          "HTML/Image sharing is not supported in this environment. Would you like to share the document details as text instead?",
-          "info",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Share Text",
-              onPress: () => shareText(doc.name, summary),
-            },
-          ]
-        );
+        if (Platform.OS === "ios") {
+          await Share.share({ url: tempUri });
+        } else {
+          const summary = buildDocumentSummary(doc);
+          showAlert(
+            "Rich Sharing Unavailable",
+            "HTML/Image sharing is not supported in this environment. Would you like to share the document details as text instead?",
+            "info",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Share Text",
+                onPress: () => shareText(doc.name, summary),
+              },
+            ]
+          );
+        }
       }
-    }
+    });
 
     // Clean up temp file
     await deleteFile(tempUri);
@@ -205,87 +212,90 @@ export async function downloadDocument(doc: ZentraDocument): Promise<void> {
       return;
     }
 
-    // Android download using SAF
-    if (Platform.OS === "android") {
-      try {
-        const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-        if (!permissions.granted) {
-          showAlert("Permission Denied", "Cannot save file without folder permissions.", "error");
-          return;
-        }
+    // Native Flow
+    await withIgnoreAppLock(async () => {
+      // Android download using SAF
+      if (Platform.OS === "android") {
+        try {
+          const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+          if (!permissions.granted) {
+            showAlert("Permission Denied", "Cannot save file without folder permissions.", "error");
+            return;
+          }
 
-        let fileUri = doc.localUri;
-        let mimeType = doc.localUri ? mimeTypeFor(doc.fileType, doc.localUri) : "text/plain";
-        let fileName = doc.name;
+          let fileUri = doc.localUri;
+          let mimeType = doc.localUri ? mimeTypeFor(doc.fileType, doc.localUri) : "text/plain";
+          let fileName = doc.name;
 
-        if (!fileUri) {
-          const summary = buildDocumentSummary(doc);
-          const tempUri = getCacheUri(`zentra_download_${Date.now()}.txt`);
-          await writeString(tempUri, summary);
-          fileUri = tempUri;
-          fileName = `${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`;
-        }
+          if (!fileUri) {
+            const summary = buildDocumentSummary(doc);
+            const tempUri = getCacheUri(`zentra_download_${Date.now()}.txt`);
+            await writeString(tempUri, summary);
+            fileUri = tempUri;
+            fileName = `${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`;
+          }
 
-        const fileContent = await readBase64(fileUri);
+          const fileContent = await readBase64(fileUri);
 
-        const createdFileUri = await StorageAccessFramework.createFileAsync(
-          permissions.directoryUri,
-          fileName,
-          mimeType
-        );
+          const createdFileUri = await StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            fileName,
+            mimeType
+          );
 
-        // SAF requires base64 writing on Android. Since this is SAF-specific, we write using fileStorage
-        const FileSystem = await import("expo-file-system/legacy");
-        await FileSystem.writeAsStringAsync(createdFileUri, fileContent, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+          // SAF requires base64 writing on Android. Since this is SAF-specific, we write using fileStorage
+          const FileSystem = await import("expo-file-system/legacy");
+          await FileSystem.writeAsStringAsync(createdFileUri, fileContent, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
 
-        if (!doc.localUri) {
-          await deleteFile(fileUri);
-        }
+          if (!doc.localUri) {
+            await deleteFile(fileUri);
+          }
 
-        showAlert("Success", "Document saved to your selected folder.", "success");
-      } catch (error) {
-        console.error("Android download failed:", error);
-        const Sharing = getSharingModule();
-        if (doc.localUri && Sharing) {
-          await Sharing.shareAsync(doc.localUri);
-        } else {
-          showAlert("Error", "Failed to download document.", "error");
-        }
-      }
-    } else {
-      // iOS download using share sheet / save to files
-      const Sharing = getSharingModule();
-      const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
-
-      if (Sharing && isSharingAvailable) {
-        if (doc.localUri) {
-          await Sharing.shareAsync(doc.localUri, { UTI: "public.item" });
-        } else {
-          const summary = buildDocumentSummary(doc);
-          const tempUri = getCacheUri(`${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`);
-          await writeString(tempUri, summary);
-
-          await Sharing.shareAsync(tempUri, { UTI: "public.text" });
-
-          await deleteFile(tempUri);
+          showAlert("Success", "Document saved to your selected folder.", "success");
+        } catch (error) {
+          console.error("Android download failed:", error);
+          const Sharing = getSharingModule();
+          if (doc.localUri && Sharing) {
+            await Sharing.shareAsync(doc.localUri);
+          } else {
+            showAlert("Error", "Failed to download document.", "error");
+          }
         }
       } else {
-        // Fallback to React Native's built-in Share module on iOS
-        try {
+        // iOS download using share sheet / save to files
+        const Sharing = getSharingModule();
+        const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
+
+        if (Sharing && isSharingAvailable) {
           if (doc.localUri) {
-            await Share.share({ url: doc.localUri });
+            await Sharing.shareAsync(doc.localUri, { UTI: "public.item" });
           } else {
             const summary = buildDocumentSummary(doc);
-            await Share.share({ title: doc.name, message: summary });
+            const tempUri = getCacheUri(`${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`);
+            await writeString(tempUri, summary);
+
+            await Sharing.shareAsync(tempUri, { UTI: "public.text" });
+
+            await deleteFile(tempUri);
           }
-        } catch (error) {
-          console.error("RN Share fallback for iOS download failed:", error);
-          showAlert("Error", "Save/Share is not available on this device.", "error");
+        } else {
+          // Fallback to React Native's built-in Share module on iOS
+          try {
+            if (doc.localUri) {
+              await Share.share({ url: doc.localUri });
+            } else {
+              const summary = buildDocumentSummary(doc);
+              await Share.share({ title: doc.name, message: summary });
+            }
+          } catch (error) {
+            console.error("RN Share fallback for iOS download failed:", error);
+            showAlert("Error", "Save/Share is not available on this device.", "error");
+          }
         }
       }
-    }
+    });
   } catch (error) {
     console.error("[downloadDocument] Failed:", error);
     showAlert("Error", "Failed to download document.", "error");
@@ -344,18 +354,20 @@ export async function exportBackup(
     const Sharing = getSharingModule();
     const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
 
-    if (Sharing && isSharingAvailable) {
-      await Sharing.shareAsync(tempPath, {
-        mimeType: "application/json",
-        dialogTitle: "Export Zentra Data",
-      });
-    } else {
-      // Fallback to React Native Share API for native platforms
-      await Share.share({
-        message: json,
-        title: "Zentra Backup Data",
-      });
-    }
+    await withIgnoreAppLock(async () => {
+      if (Sharing && isSharingAvailable) {
+        await Sharing.shareAsync(tempPath, {
+          mimeType: "application/json",
+          dialogTitle: "Export Zentra Data",
+        });
+      } else {
+        // Fallback to React Native Share API for native platforms
+        await Share.share({
+          message: json,
+          title: "Zentra Backup Data",
+        });
+      }
+    });
 
     // Cleanup cache file
     await deleteFile(tempPath);
