@@ -29,6 +29,7 @@ import { useAppLock } from "@/hooks/useAppLock";
 import { colors } from "@/theme/tokens";
 import { expiryUrgency } from "@/lib/date";
 import { cancelAllNotifications } from "@/lib/notifications";
+import { seedMockData } from "@/lib/seed";
 
 const webInputStyle: React.CSSProperties = {
   position: "absolute",
@@ -281,8 +282,6 @@ export default function ProfileScreen() {
               fontWeightClass="font-semibold"
               onPress={async () => {
                 try {
-                  // eslint-disable-next-line @typescript-eslint/no-require-imports
-                  const { seedMockData } = require("@/lib/seed");
                   await seedMockData();
                   showAlert("Success", "Demo documents loaded successfully.", "success");
                 } catch (err) {

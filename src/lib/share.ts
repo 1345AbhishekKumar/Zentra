@@ -137,11 +137,13 @@ export async function shareDocumentDetailsHtml(doc: ZentraDocument): Promise<voi
       // Web - Download the HTML file
       const element = document.createElement("a");
       const file = new Blob([htmlContent], { type: "text/html" });
-      element.href = URL.createObjectURL(file);
+      const href = URL.createObjectURL(file);
+      element.href = href;
       element.download = `${doc.name.replace(/\.[^/.]+$/, "")}_details.html`;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
+      URL.revokeObjectURL(href);
       return;
     }
 
@@ -150,35 +152,37 @@ export async function shareDocumentDetailsHtml(doc: ZentraDocument): Promise<voi
     const tempUri = getCacheUri(`${doc.name.replace(/\.[^/.]+$/, "")}_details.html`);
     await writeString(tempUri, htmlContent);
 
-    await withIgnoreAppLock(async () => {
-      if (Sharing && isSharingAvailable) {
-        await Sharing.shareAsync(tempUri, {
-          mimeType: "text/html",
-          dialogTitle: `${doc.name} Details`,
-        });
-      } else {
-        if (Platform.OS === "ios") {
-          await Share.share({ url: tempUri });
+    try {
+      await withIgnoreAppLock(async () => {
+        if (Sharing && isSharingAvailable) {
+          await Sharing.shareAsync(tempUri, {
+            mimeType: "text/html",
+            dialogTitle: `${doc.name} Details`,
+          });
         } else {
-          const summary = buildDocumentSummary(doc);
-          showAlert(
-            "Rich Sharing Unavailable",
-            "HTML/Image sharing is not supported in this environment. Would you like to share the document details as text instead?",
-            "info",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Share Text",
-                onPress: () => shareText(doc.name, summary),
-              },
-            ]
-          );
+          if (Platform.OS === "ios") {
+            await Share.share({ url: tempUri });
+          } else {
+            const summary = buildDocumentSummary(doc);
+            showAlert(
+              "Rich Sharing Unavailable",
+              "HTML/Image sharing is not supported in this environment. Would you like to share the document details as text instead?",
+              "info",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Share Text",
+                  onPress: () => shareText(doc.name, summary),
+                },
+              ]
+            );
+          }
         }
-      }
-    });
-
-    // Clean up temp file
-    await deleteFile(tempUri);
+      });
+    } finally {
+      // Clean up temp file
+      await deleteFile(tempUri);
+    }
   } catch (error) {
     console.error("[shareDocumentDetailsHtml] Failed:", error);
     showAlert("Error", "Failed to generate document export.", "error");
@@ -202,11 +206,13 @@ export async function downloadDocument(doc: ZentraDocument): Promise<void> {
         const summary = buildDocumentSummary(doc);
         const element = document.createElement("a");
         const file = new Blob([summary], { type: "text/plain" });
-        element.href = URL.createObjectURL(file);
+        const href = URL.createObjectURL(file);
+        element.href = href;
         element.download = `${doc.name.replace(/\.[^/.]+$/, "")}_details.txt`;
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
+        URL.revokeObjectURL(href);
       }
       showAlert("Success", "Document downloaded successfully!", "success");
       return;
@@ -338,11 +344,13 @@ export async function exportBackup(
     if (Platform.OS === "web") {
       const element = document.createElement("a");
       const file = new Blob([json], { type: "application/json" });
-      element.href = URL.createObjectURL(file);
+      const href = URL.createObjectURL(file);
+      element.href = href;
       element.download = "zentra_backup.json";
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
+      URL.revokeObjectURL(href);
       showAlert("Success", "Backup file downloaded successfully!", "success");
       return;
     }
@@ -351,26 +359,28 @@ export async function exportBackup(
     const tempPath = getCacheUri("zentra_backup.json");
     await writeString(tempPath, json);
 
-    const Sharing = getSharingModule();
-    const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
+    try {
+      const Sharing = getSharingModule();
+      const isSharingAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
 
-    await withIgnoreAppLock(async () => {
-      if (Sharing && isSharingAvailable) {
-        await Sharing.shareAsync(tempPath, {
-          mimeType: "application/json",
-          dialogTitle: "Export Zentra Data",
-        });
-      } else {
-        // Fallback to React Native Share API for native platforms
-        await Share.share({
-          message: json,
-          title: "Zentra Backup Data",
-        });
-      }
-    });
-
-    // Cleanup cache file
-    await deleteFile(tempPath);
+      await withIgnoreAppLock(async () => {
+        if (Sharing && isSharingAvailable) {
+          await Sharing.shareAsync(tempPath, {
+            mimeType: "application/json",
+            dialogTitle: "Export Zentra Data",
+          });
+        } else {
+          // Fallback to React Native Share API for native platforms
+          await Share.share({
+            message: json,
+            title: "Zentra Backup Data",
+          });
+        }
+      });
+    } finally {
+      // Cleanup cache file
+      await deleteFile(tempPath);
+    }
   } catch (error) {
     console.error("[exportBackup] Failed to export backup:", error);
     showAlert("Export Failed", "An error occurred while generating or sharing your backup.", "error");

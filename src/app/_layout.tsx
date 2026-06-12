@@ -18,7 +18,6 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { Image } from "expo-image";
 import { images } from "@/constants/images";
 import { useAppLock, shouldIgnoreAppLock, setIgnoreAppLock } from "@/hooks/useAppLock";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import CustomAlert from "@/components/CustomAlert";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
@@ -136,10 +135,8 @@ function InitialLayout() {
   useEffect(() => {
     const checkColdStartLock = async () => {
       try {
-        const val = await AsyncStorage.getItem("zentra_app_lock_enabled");
-        const lockEnabled = val === "true";
         const isAuthRoute = segments[0] === "(auth)";
-        if (lockEnabled && isSignedIn && !isAuthRoute) {
+        if (isLockEnabled && isSignedIn && !isAuthRoute) {
           setIsLocked(true);
           const success = await authenticate();
           if (success) {
@@ -151,11 +148,11 @@ function InitialLayout() {
       }
     };
 
-    if (_hasHydrated && isLoaded && !coldStartLockChecked.current) {
+    if (_hasHydrated && isLoaded && isLockEnabled !== null && !coldStartLockChecked.current) {
       coldStartLockChecked.current = true;
       checkColdStartLock();
     }
-  }, [_hasHydrated, isLoaded, isSignedIn, segments, authenticate]);
+  }, [_hasHydrated, isLoaded, isLockEnabled, isSignedIn, segments, authenticate]);
 
   // AppState listening for foregrounding transitions
   useEffect(() => {
@@ -213,7 +210,7 @@ function InitialLayout() {
       <CustomAlert />
 
       <Modal
-        visible={isLocked && isSignedIn && segments[0] !== "(auth)" && isLockEnabled}
+        visible={!!(isLocked && isSignedIn && segments[0] !== "(auth)" && isLockEnabled)}
         transparent={false}
         animationType="fade"
         onRequestClose={() => {

@@ -48,10 +48,12 @@ export default function HomeScreen() {
   } = useDocumentSelection();
 
   React.useEffect(() => {
-    console.log("[Zentra Debug] Store documents count:", documents.length);
-    const state = useDocumentStore.getState();
-    console.log("[Zentra Debug] Store folders:", state.folders);
-    console.log("[Zentra Debug] Store active documents:", documents.filter(d => !d.isDeleted).length);
+    if (__DEV__) {
+      console.log("[Zentra Debug] Store documents count:", documents.length);
+      const state = useDocumentStore.getState();
+      console.log("[Zentra Debug] Store folders:", state.folders);
+      console.log("[Zentra Debug] Store active documents:", documents.filter(d => !d.isDeleted).length);
+    }
   }, [documents]);
 
   const handleDeleteDoc = (doc: ZentraDocument) => {
@@ -400,7 +402,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
     borderWidth: 1,
-    borderColor: "#F0F0F2",
+    borderColor: colors.border,
   },
   fabWrap: {
     zIndex: 50,

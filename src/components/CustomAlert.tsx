@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 import { useAlertStore, hideAlert, AlertButton } from "@/store/alertStore";
 import ScalePressable from "./ScalePressable";
@@ -6,8 +6,6 @@ import StatusCircle from "./StatusCircle";
 
 export default function CustomAlert() {
   const { visible, title, message, type, buttons } = useAlertStore();
-
-  if (!visible) return null;
 
   // Button styling based on AlertType
   let defaultBtnColor = "bg-accent";
@@ -19,12 +17,50 @@ export default function CustomAlert() {
     defaultBtnColor = "bg-warning";
   }
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!visible && timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const getButtonStyles = (btn: AlertButton) => {
+    const isCancel = btn.style === "cancel";
+    const isDestructive = btn.style === "destructive";
+
+    let btnBgClass = defaultBtnColor;
+    let textClass = "text-white font-semibold";
+    let borderClass = "";
+
+    if (isCancel) {
+      btnBgClass = "bg-background";
+      textClass = "text-primary font-semibold";
+      borderClass = "border border-border";
+    } else if (isDestructive) {
+      btnBgClass = "bg-danger";
+      textClass = "text-white font-semibold";
+    }
+
+    return { btnBgClass, textClass, borderClass };
+  };
 
   const handleButtonPress = (btn: AlertButton) => {
     hideAlert();
     if (btn.onPress) {
-      // Brief delay to allow modal dismiss animations to finish cleanly
-      setTimeout(() => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
         btn.onPress?.();
       }, 100);
     }
@@ -52,21 +88,7 @@ export default function CustomAlert() {
       return (
         <View className="flex-row w-full gap-3">
           {buttons.map((btn, index) => {
-            const isCancel = btn.style === "cancel";
-            const isDestructive = btn.style === "destructive";
-
-            let btnBgClass = defaultBtnColor;
-            let textClass = "text-white font-semibold";
-            let borderClass = "";
-
-            if (isCancel) {
-              btnBgClass = "bg-background";
-              textClass = "text-primary font-semibold";
-              borderClass = "border border-border";
-            } else if (isDestructive) {
-              btnBgClass = "bg-danger";
-              textClass = "text-white font-semibold";
-            }
+            const { btnBgClass, textClass, borderClass } = getButtonStyles(btn);
 
             return (
               <ScalePressable
@@ -90,21 +112,7 @@ export default function CustomAlert() {
     return (
       <View className="w-full gap-2">
         {buttons.map((btn, index) => {
-          const isCancel = btn.style === "cancel";
-          const isDestructive = btn.style === "destructive";
-
-          let btnBgClass = defaultBtnColor;
-          let textClass = "text-white font-semibold";
-          let borderClass = "";
-
-          if (isCancel) {
-            btnBgClass = "bg-background";
-            textClass = "text-primary font-semibold";
-            borderClass = "border border-border";
-          } else if (isDestructive) {
-            btnBgClass = "bg-danger";
-            textClass = "text-white font-semibold";
-          }
+          const { btnBgClass, textClass, borderClass } = getButtonStyles(btn);
 
           return (
             <ScalePressable

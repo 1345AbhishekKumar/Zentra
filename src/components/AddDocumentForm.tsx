@@ -4,13 +4,14 @@ import FilePickerButton, { PickedFile } from "@/components/FilePickerButton";
 import { colors } from "@/theme/tokens";
 import { DocumentCategory, DocumentFileType, ZentraDocument } from "@/types";
 import { isValid, parseISO, startOfDay, startOfToday } from "date-fns";
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     ActivityIndicator,
     ScrollView,
     Text,
     TextInput,
     View,
+    Animated,
 } from "react-native";
 import ScalePressable from "./ScalePressable";
 import { extractTextFromImage, parseDocumentDetails } from "@/lib/ocr";
@@ -120,6 +121,32 @@ export default function AddDocumentForm({
 
   // Active focus element state
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Pulsing animation for scanning state
+  const [pulseAnim] = useState(() => new Animated.Value(0.6));
+
+  useEffect(() => {
+    if (isScanning) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0.6,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    } else {
+      pulseAnim.setValue(0.6);
+    }
+  }, [isScanning, pulseAnim]);
 
   // Ensure selected category is always listed in pills even if folders is empty/doesn't have it
   const categoryList = folders.includes(category) ? folders : [...folders, category];
@@ -420,12 +447,15 @@ export default function AddDocumentForm({
         />
 
         {isScanning && (
-          <View className="mb-4 bg-soft-accent border border-accent/20 rounded-xl p-4 flex-row items-center justify-center animate-pulse">
+          <Animated.View
+            className="mb-4 bg-soft-accent border border-accent/20 rounded-xl p-4 flex-row items-center justify-center"
+            style={{ opacity: pulseAnim }}
+          >
             <ActivityIndicator size="small" color={colors.accent} />
             <Text className="text-body-md text-accent font-semibold ml-2">
               Scanning document locally for details...
             </Text>
-          </View>
+          </Animated.View>
         )}
 
         {/* Notes */}

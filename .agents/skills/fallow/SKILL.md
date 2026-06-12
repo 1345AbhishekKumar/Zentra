@@ -39,11 +39,15 @@ Codebase intelligence for JavaScript and TypeScript. The free static layer repor
 Fallow must be installed. If not available, install it:
 
 ```bash
+bun add -g fallow              # Bun-first install
+# or
+bunx fallow dead-code          # Bun-first run without installing
+# or
 npm install -g fallow          # prebuilt binaries (fastest)
 # or
-npx fallow dead-code               # run without installing
+npx fallow dead-code           # run without installing
 # or
-cargo install fallow-cli        # build from source
+cargo install fallow-cli       # build from source
 ```
 
 ## Agent Rules
@@ -185,7 +189,7 @@ See <https://docs.fallow.tools/integrations/node-bindings> for the full field re
 ### Audit a project for cleanup opportunities
 
 ```bash
-fallow dead-code --format json --quiet
+fallow dead-code --format json --quiet || true
 ```
 
 Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata. Each issue object includes an `actions` array with structured fix suggestions (action type, `auto_fixable` flag, description, and optional suppression comment). For dependency findings, a non-empty `used_in_workspaces` array means the package is imported elsewhere in the monorepo; treat it as a workspace placement issue and do not auto-remove it.
@@ -193,13 +197,13 @@ Parse the JSON output. It contains arrays for each issue type (`unused_files`, `
 ### Find only unused exports (smaller output)
 
 ```bash
-fallow dead-code --format json --quiet --unused-exports
+fallow dead-code --format json --quiet --unused-exports || true
 ```
 
 ### Check if a PR introduces quality risk
 
 ```bash
-fallow audit --format json --quiet --base main
+fallow audit --format json --quiet --base main || true
 ```
 
 Returns a pass/warn/fail verdict for issues introduced by the PR. Only analyzes files changed since the `main` branch.
@@ -207,8 +211,8 @@ Returns a pass/warn/fail verdict for issues introduced by the PR. Only analyzes 
 ### Find code duplication
 
 ```bash
-fallow dupes --format json --quiet
-fallow dupes --format json --quiet --mode semantic
+fallow dupes --format json --quiet || true
+fallow dupes --format json --quiet --mode semantic || true
 ```
 
 The `semantic` mode detects renamed variables. Other modes: `strict` (exact), `mild` (default, syntax normalized), `weak` (different literals).
@@ -217,13 +221,13 @@ The `semantic` mode detects renamed variables. Other modes: `strict` (exact), `m
 
 ```bash
 # 1. Preview what will be removed
-fallow fix --dry-run --format json --quiet
+fallow fix --dry-run --format json --quiet || true
 
 # 2. Review the output, then apply
-fallow fix --yes --format json --quiet
+fallow fix --yes --format json --quiet || true
 
 # 3. Verify the fix worked
-fallow dead-code --format json --quiet
+fallow dead-code --format json --quiet || true
 ```
 
 The `--yes` flag is required in non-TTY environments (agent subprocesses). Without it, `fix` exits with code 2.
@@ -231,8 +235,8 @@ The `--yes` flag is required in non-TTY environments (agent subprocesses). Witho
 ### Discover project structure
 
 ```bash
-fallow list --entry-points --format json --quiet
-fallow list --plugins --format json --quiet
+fallow list --entry-points --format json --quiet || true
+fallow list --plugins --format json --quiet || true
 ```
 
 Shows detected entry points and active framework plugins (118 built-in: Next.js, Vite, Ember, Wuchale, Jest, Storybook, Tailwind, PandaCSS, Contentlayer, tap, tsd, etc.).
@@ -240,7 +244,7 @@ Shows detected entry points and active framework plugins (118 built-in: Next.js,
 ### Production-only analysis
 
 ```bash
-fallow dead-code --format json --quiet --production
+fallow dead-code --format json --quiet --production || true
 ```
 
 Excludes test/dev files (`*.test.*`, `*.spec.*`, `*.stories.*`) and only analyzes production scripts.
@@ -249,20 +253,20 @@ Excludes test/dev files (`*.test.*`, `*.spec.*`, `*.stories.*`) and only analyze
 
 ```bash
 # Single package
-fallow dead-code --format json --quiet --workspace my-package
+fallow dead-code --format json --quiet --workspace my-package || true
 
 # Multiple packages
-fallow dead-code --format json --quiet --workspace web,admin
+fallow dead-code --format json --quiet --workspace web,admin || true
 
 # Glob (matched against package name AND workspace path)
-fallow dead-code --format json --quiet --workspace 'apps/*'
+fallow dead-code --format json --quiet --workspace 'apps/*' || true
 
 # Exclude one workspace from a set
-fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'
+fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy' || true
 
 # Monorepo CI: auto-scope to workspaces containing any file changed since origin/main
 # (replaces hand-written --workspace lists that drift as the repo evolves)
-fallow dead-code --format json --quiet --changed-workspaces origin/main
+fallow dead-code --format json --quiet --changed-workspaces origin/main || true
 ```
 
 Scopes output while keeping the full cross-workspace graph. Patterns are tested against BOTH the package name (from `package.json`) AND the workspace path relative to the repo root; either match counts. Use `!`-prefixed patterns to exclude.
@@ -272,7 +276,7 @@ Scopes output while keeping the full cross-workspace graph. Patterns are tested 
 ### Scope to specific files (lint-staged)
 
 ```bash
-fallow dead-code --format json --quiet --file src/utils.ts --file src/helpers.ts
+fallow dead-code --format json --quiet --file src/utils.ts --file src/helpers.ts || true
 ```
 
 Only reports issues in the specified files. Project-wide dependency issues are suppressed. Warns on non-existent paths.
@@ -280,7 +284,7 @@ Only reports issues in the specified files. Project-wide dependency issues are s
 ### Catch typos in entry file exports
 
 ```bash
-fallow dead-code --format json --quiet --include-entry-exports
+fallow dead-code --format json --quiet --include-entry-exports || true
 ```
 
 Reports unused exports in entry files (package.json `main`/`exports`, framework pages). By default, exports in entry files are assumed externally consumed. This flag catches typos like `meatdata` instead of `metadata`.
@@ -289,29 +293,29 @@ Reports unused exports in entry files (package.json `main`/`exports`, framework 
 
 ```bash
 # Trace an export's usage chain
-fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
+fallow dead-code --format json --quiet --trace src/utils.ts:myFunction || true
 
 # Trace all edges for a file
-fallow dead-code --format json --quiet --trace-file src/utils.ts
+fallow dead-code --format json --quiet --trace-file src/utils.ts || true
 
 # Trace where a dependency is used
-fallow dead-code --format json --quiet --trace-dependency lodash
+fallow dead-code --format json --quiet --trace-dependency lodash || true
 ```
 
 ### Migrate from knip or jscpd
 
 ```bash
 # Preview migration
-fallow migrate --dry-run
+fallow migrate --dry-run || true
 
 # Apply migration (auto-mirrors source extension: knip.jsonc -> .fallowrc.jsonc, knip.json -> .fallowrc.json)
-fallow migrate
+fallow migrate || true
 
 # Force JSONC output regardless of source (lets editors syntax-highlight comments)
-fallow migrate --jsonc
+fallow migrate --jsonc || true
 
 # Migrate to TOML (creates fallow.toml)
-fallow migrate --toml
+fallow migrate --toml || true
 ```
 
 Auto-detects `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `.jscpd.json`, and package.json embedded configs.
@@ -319,10 +323,10 @@ Auto-detects `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `.jscpd.jso
 ### Initialize a new config
 
 ```bash
-fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore
-fallow init --toml       # creates fallow.toml, adds .fallow/ to .gitignore
-fallow hooks install --target git
-fallow hooks install --target git --branch develop  # fallback base branch when no upstream is set
+fallow init || true              # creates .fallowrc.json, adds .fallow/ to .gitignore
+fallow init --toml || true       # creates fallow.toml, adds .fallow/ to .gitignore
+fallow hooks install --target git || true
+fallow hooks install --target git --branch develop || true  # fallback base branch when no upstream is set
 ```
 
 ## Exit Codes

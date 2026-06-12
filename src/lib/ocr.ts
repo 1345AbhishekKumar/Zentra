@@ -3,7 +3,11 @@ import { parse, parseISO, isValid, isAfter, startOfToday, format } from "date-fn
 
 // Try to safely import the native text-recognition module.
 // If it is not available (e.g., in Sandbox/Expo Go/Web), we fallback gracefully.
-let TextRecognition: any = null;
+interface TextRecognitionInterface {
+  recognize(imageUri: string): Promise<{ text?: string }>;
+}
+
+let TextRecognition: TextRecognitionInterface | null = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mlkit = require("@react-native-ml-kit/text-recognition");
@@ -24,8 +28,8 @@ export async function extractTextFromImage(imageUri: string, filename: string): 
       console.log(`Running on-device OCR on URI: ${imageUri}`);
       const result = await TextRecognition.recognize(imageUri);
       return result.text || "";
-    } catch (error: any) {
-      const errMsg = error?.message || "";
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       if (errMsg.includes("linked") || errMsg.includes("linking") || errMsg.includes("managed workflow")) {
         console.log("Native ML Kit text recognition is not linked in this build. Using simulated sandbox parser.");
       } else {

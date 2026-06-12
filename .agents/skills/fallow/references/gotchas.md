@@ -59,22 +59,22 @@ The `--quiet` flag suppresses progress bars on stderr. Without it, stderr output
 
 ---
 
-## `--changed-since` Shows Only New Issues
+## `--changed-since` Restricts Analysis Scope (Not Baseline Attribution)
 
-The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files, not all issues in the project. Works with both `dead-code` and `dupes`.
+The `--changed-since` flag restricts the analysis scope to only files modified since the specified git ref. It is a performance-oriented scope-limiter, NOT a tool for new-vs-baseline attribution (which is handled by baseline files). Works with both `dead-code` and `dupes`.
 
 ```bash
-# This only shows issues in files changed since main
-fallow dead-code --format json --quiet --changed-since main
+# This restricts analysis scope to files changed since main
+fallow dead-code --format json --quiet --changed-since main || true
 
-# Same for duplication — only clone groups involving changed files
-fallow dupes --format json --quiet --changed-since main
+# Same for duplication — clone groups are only detected within changed files
+fallow dupes --format json --quiet --changed-since main || true
 
-# This shows ALL issues in the project
-fallow dead-code --format json --quiet
+# This runs analysis over the full project
+fallow dead-code --format json --quiet || true
 ```
 
-Don't use `--changed-since` when auditing the full project. Use it for PR checks and incremental CI.
+Do not confuse `--changed-since` with baseline comparison. If you want to check if a PR introduces any new issues across the whole project, use the `--baseline` compare features instead of `--changed-since`.
 
 ---
 

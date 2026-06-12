@@ -59,7 +59,7 @@ export default function ProfileMenuItem({
         </Text>
       )}
       {badge}
-      <Feather name="chevron-right" size={18} color="#C7C7CC" />
+      <Feather name="chevron-right" size={18} color={colors.secondary} />
     </Pressable>
   );
 }

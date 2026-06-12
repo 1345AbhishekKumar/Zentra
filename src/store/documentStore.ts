@@ -1,7 +1,7 @@
-import { filterUpcoming, sortByExpiry } from "@/lib/date";
+import { filterUpcoming, sortByExpiry, expiryUrgency } from "@/lib/date";
 import { syncAllNotifications } from "@/lib/notifications";
-import { initializeVaultStore } from "@/lib/vaultManager";
-import { LocalUser, NotificationSettings, ZentraDocument } from "@/types";
+import { saveFile, deleteFile } from "@/lib/fileStorage";
+import { LocalUser, NotificationSettings, ZentraDocument, ZentraDocumentWithUrgency } from "@/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -40,15 +40,6 @@ interface DocumentStore {
   deleteMultipleFolders: (names: string[]) => void;
   markAlertAsRead: (id: string) => void;
   markAllAlertsAsRead: (ids: string[]) => void;
-
-  // State mutations (used by vaultManager)
-  addDocumentState: (doc: ZentraDocument) => void;
-  updateDocumentState: (id: string, updates: Partial<ZentraDocument>) => void;
-  deleteDocumentState: (id: string) => void;
-  deleteMultipleDocumentsState: (ids: string[]) => void;
-  restoreDocumentState: (id: string) => void;
-  purgeDocumentState: (id: string) => void;
-  clearAllDataState: () => void;
 }
 
 const computeUpcoming = (documents: ZentraDocument[]): ZentraDocument[] => {
@@ -94,38 +85,163 @@ export const useDocumentStore = create<DocumentStore>()(
       },
 
       addDocument: async (doc) => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.addDocument(doc);
+        let finalUri = doc.localUri;
+        let copiedNewFile = false;
+
+        if (doc.localUri) {
+          const permanentUri = await saveFile(doc.localUri, doc.name);
+          if (permanentUri) {
+            finalUri = permanentUri;
+            copiedNewFile = true;
+          }
+        }
+
+        const docToSave = {
+          ...doc,
+          localUri: finalUri,
+        };
+
+        try {
+          set((state) => ({
+            documents: [...state.documents, docToSave],
+          }));
+        } catch (error) {
+          if (copiedNewFile && finalUri) {
+            await deleteFile(finalUri);
+          }
+          throw error;
+        }
       },
 
       updateDocument: async (id, updates) => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.updateDocument(id, updates);
+        const { documents } = get();
+        const existingDoc = documents.find((doc) => doc.id === id);
+        if (!existingDoc) return;
+
+        let updatedLocalUri = existingDoc.localUri;
+        let copiedNewFile = false;
+
+        if ("localUri" in updates) {
+          if (updates.localUri && updates.localUri !== existingDoc.localUri) {
+            const permanentUri = await saveFile(updates.localUri, updates.name || existingDoc.name);
+            if (permanentUri) {
+              updatedLocalUri = permanentUri;
+              copiedNewFile = true;
+            }
+          } else if (!updates.localUri) {
+            updatedLocalUri = undefined;
+          }
+        }
+
+        try {
+          const updatedAt = new Date().toISOString();
+          const updatedDocs = documents.map((doc) => {
+            if (doc.id !== id) return doc;
+            return { ...doc, ...updates, localUri: updatedLocalUri, updatedAt };
+          });
+
+          const expiryDateChanged = updates.expiryDate && updates.expiryDate !== existingDoc.expiryDate;
+          const readAlerts = get().readAlerts || [];
+          const updatedReadAlerts = expiryDateChanged
+            ? readAlerts.filter((alertId) => alertId !== id)
+            : readAlerts;
+
+          set({
+            documents: updatedDocs,
+            readAlerts: updatedReadAlerts,
+          });
+
+          if (existingDoc.localUri && existingDoc.localUri !== updatedLocalUri) {
+            await deleteFile(existingDoc.localUri);
+          }
+        } catch (error) {
+          if (copiedNewFile && updatedLocalUri) {
+            await deleteFile(updatedLocalUri);
+          }
+          throw error;
+        }
       },
 
       deleteDocument: async (id) => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.deleteDocument(id);
+        set((state) => ({
+          documents: state.documents.map((doc) =>
+            doc.id === id
+              ? {
+                  ...doc,
+                  isDeleted: true,
+                  deletedAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
+              : doc
+          ),
+        }));
       },
 
       deleteMultipleDocuments: async (ids) => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.deleteMultipleDocuments(ids);
+        set((state) => ({
+          documents: state.documents.map((doc) =>
+            ids.includes(doc.id)
+              ? {
+                  ...doc,
+                  isDeleted: true,
+                  deletedAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
+              : doc
+          ),
+        }));
       },
 
       restoreDocument: async (id) => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.restoreDocument(id);
+        set((state) => ({
+          documents: state.documents.map((d) =>
+            d.id === id
+              ? {
+                  ...d,
+                  isDeleted: false,
+                  deletedAt: undefined,
+                  updatedAt: new Date().toISOString(),
+                }
+              : d
+          ),
+        }));
       },
 
       permanentlyDeleteDocument: async (id) => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.permanentlyDeleteDocument(id);
+        const { documents, readAlerts = [] } = get();
+        const doc = documents.find((d) => d.id === id);
+
+        if (doc?.localUri) {
+          try {
+            await deleteFile(doc.localUri);
+          } catch (error) {
+            console.error(`[documentStore] Failed to delete physical file for document ${id}:`, error);
+            throw error;
+          }
+        }
+
+        set({
+          documents: documents.filter((d) => d.id !== id),
+          readAlerts: readAlerts.filter((alertId) => alertId !== id),
+        });
       },
 
       purgeExpiredTrash: async () => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.purgeExpiredTrash();
+        const { documents } = get();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const toPurge = documents.filter(
+          (doc) =>
+            doc.isDeleted &&
+            doc.deletedAt &&
+            new Date(doc.deletedAt).getTime() < thirtyDaysAgo.getTime()
+        );
+
+        for (const doc of toPurge) {
+          const { permanentlyDeleteDocument: permDelete } = get();
+          await permDelete(doc.id);
+        }
       },
 
       toggleFavorite: (id) => {
@@ -185,103 +301,19 @@ export const useDocumentStore = create<DocumentStore>()(
       },
 
       clearAllData: async () => {
-        const { vaultManager } = await import("@/lib/vaultManager");
-        await vaultManager.clearAllData();
-      },
+        const { documents } = get();
+        for (const doc of documents) {
+          if (doc.localUri) {
+            await deleteFile(doc.localUri);
+          }
+        }
 
-      // State mutations (used by vaultManager to modify the store state purely in-memory)
-      addDocumentState: (doc) => {
-        set((state) => ({
-          documents: [...state.documents, doc],
-        }));
-      },
-
-      updateDocumentState: (id, updates) => {
-        const { documents, readAlerts = [] } = get();
-        const existingDoc = documents.find((doc) => doc.id === id);
-        if (!existingDoc) return;
-
-        const updatedAt = new Date().toISOString();
-        const updatedDocs = documents.map((doc) => {
-          if (doc.id !== id) return doc;
-          return { ...doc, ...updates, updatedAt };
-        });
-
-        const expiryDateChanged = updates.expiryDate && updates.expiryDate !== existingDoc.expiryDate;
-        const updatedReadAlerts = expiryDateChanged
-          ? readAlerts.filter((alertId) => alertId !== id)
-          : readAlerts;
-
-        set({
-          documents: updatedDocs,
-          readAlerts: updatedReadAlerts,
-        });
-      },
-
-      deleteDocumentState: (id) => {
-        set((state) => ({
-          documents: state.documents.map((doc) =>
-            doc.id === id
-              ? {
-                  ...doc,
-                  isDeleted: true,
-                  deletedAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              : doc
-          ),
-        }));
-      },
-
-      deleteMultipleDocumentsState: (ids) => {
-        set((state) => ({
-          documents: state.documents.map((doc) =>
-            ids.includes(doc.id)
-              ? {
-                  ...doc,
-                  isDeleted: true,
-                  deletedAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              : doc
-          ),
-        }));
-      },
-
-      restoreDocumentState: (id) => {
-        set((state) => ({
-          documents: state.documents.map((d) =>
-            d.id === id
-              ? {
-                  ...d,
-                  isDeleted: false,
-                  deletedAt: undefined,
-                  updatedAt: new Date().toISOString(),
-                }
-              : d
-          ),
-        }));
-      },
-
-      purgeDocumentState: (id) => {
-        set((state) => {
-          const updatedDocs = state.documents.filter((d) => d.id !== id);
-          const readAlerts = state.readAlerts || [];
-          return {
-            documents: updatedDocs,
-            readAlerts: readAlerts.filter((alertId) => alertId !== id),
-          };
-        });
-      },
-
-      clearAllDataState: () => {
         set({
           documents: [],
           folders: [...DEFAULT_FOLDERS],
           readAlerts: [],
         });
       },
-
 
       seedStore: async (seededDocs, seededFolders) => {
         try {
@@ -296,7 +328,10 @@ export const useDocumentStore = create<DocumentStore>()(
             });
 
             const nonDemoDocs = state.documents.filter((d) => !d.id.startsWith("demo-"));
-            const updatedDocs = [...nonDemoDocs, ...seededDocs];
+            const docMap = new Map<string, ZentraDocument>();
+            nonDemoDocs.forEach((d) => docMap.set(d.id, d));
+            seededDocs.forEach((d) => docMap.set(d.id, d));
+            const updatedDocs = Array.from(docMap.values());
             const updatedReadAlerts = (state.readAlerts || []).filter((id) => !id.startsWith("demo-"));
 
             console.log(`[Zentra Debug] Merged docs. Previous total: ${state.documents.length}, Non-demo: ${nonDemoDocs.length}, New total: ${updatedDocs.length}`);
@@ -439,7 +474,17 @@ export const useDocumentStore = create<DocumentStore>()(
   )
 );
 
+const notificationsAffectingState = (docs: ZentraDocument[]): string => {
+  return docs
+    .filter((d) => !d.isDeleted)
+    .map((d) => `${d.id}:${d.name}:${d.expiryDate}:${d.notificationsEnabled}`)
+    .sort()
+    .join("|");
+};
+
 // Auto-compute upcoming expirations and auto-sync notifications on store changes
+let notificationSyncPromise = Promise.resolve();
+
 useDocumentStore.subscribe((state, prevState) => {
   // If documents changed, recompute upcoming
   if (state.documents !== prevState.documents) {
@@ -451,16 +496,29 @@ useDocumentStore.subscribe((state, prevState) => {
     }
   }
 
-    // If documents, settings, or hydration state changed, sync notifications
-    if (
-      state._hasHydrated &&
-      (state.documents !== prevState.documents ||
-        state.notificationSettings !== prevState.notificationSettings ||
-        !prevState._hasHydrated)
-    ) {
-      void syncAllNotifications(state.documents, state.notificationSettings);
-    }
+  // If documents, settings, or hydration state changed, sync notifications
+  const prevAffecting = prevState._hasHydrated ? notificationsAffectingState(prevState.documents) : "";
+  const nextAffecting = state._hasHydrated ? notificationsAffectingState(state.documents) : "";
+
+  if (
+    state._hasHydrated &&
+    (prevAffecting !== nextAffecting ||
+      state.notificationSettings !== prevState.notificationSettings ||
+      !prevState._hasHydrated)
+  ) {
+    notificationSyncPromise = notificationSyncPromise.then(async () => {
+      try {
+        await syncAllNotifications(state.documents, state.notificationSettings);
+      } catch (error) {
+        console.error("[DocumentStore] Error syncing notifications:", error);
+      }
+    });
+  }
 });
 
-// Statically initialize the vault manager store reference to completely bypass circular dependencies
-initializeVaultStore(useDocumentStore);
+export const selectDocumentsWithUrgency = (state: { documents: ZentraDocument[] }): ZentraDocumentWithUrgency[] => {
+  return state.documents.map((doc) => ({
+    ...doc,
+    urgency: expiryUrgency(doc.expiryDate),
+  }));
+};

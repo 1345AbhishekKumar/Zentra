@@ -45,3 +45,5 @@ example
 /ios
 /android
 .fallow/
+
+/context

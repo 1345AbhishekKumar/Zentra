@@ -13,6 +13,7 @@ import {
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
 import { images } from "@/constants/images";
+import { colors } from "@/theme/tokens";
 import { useClerk, useSignIn } from "@clerk/expo";
 import { showAlert } from "@/store/alertStore";
 
@@ -239,7 +240,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#FFFFFF]">
+    <SafeAreaView className="flex-1 bg-surface">
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -250,13 +251,13 @@ export default function ForgotPassword() {
           keyboardShouldPersistTaps="handled"
         >
           <View
-            className="w-full max-w-md px-[24px] py-[32px] justify-center"
+            className="w-full max-w-md px-6 py-8 justify-center"
             style={{ width: "100%", maxWidth: 448 }}
           >
             <View className="flex-col w-full" style={{ gap: 40, width: "100%" }}>
               {/* Header Section */}
               <View className="items-center w-full" style={{ gap: 8, width: "100%" }}>
-                <View className="flex-row justify-center mb-[12px]">
+                <View className="flex-row justify-center mb-3">
                   <Image
                     source={images.happy}
                     style={{ width: 110, height: 110 }}
@@ -264,13 +265,13 @@ export default function ForgotPassword() {
                   />
                 </View>
                 <Text
-                  className="text-[#12121A] text-[44px] italic tracking-[-0.02em]"
+                  className="text-primary text-[44px] italic tracking-[-0.02em]"
                   style={{ fontFamily: "PlayfairDisplayItalic", lineHeight: 48 }}
                 >
                   Zentra
                 </Text>
                 <Text
-                  className="text-[#6C6B7E] text-[16px] text-center"
+                  className="text-secondary text-[16px] text-center"
                   style={{ fontFamily: "Inter", lineHeight: 24 }}
                 >
                   {step === "send"
@@ -287,7 +288,7 @@ export default function ForgotPassword() {
                   {/* Email Field */}
                   <View className="flex-col w-full" style={{ gap: 6, width: "100%" }}>
                     <Text
-                      className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
+                      className="text-secondary text-[10px] font-semibold uppercase tracking-wider"
                       style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                     >
                       Email
@@ -295,7 +296,7 @@ export default function ForgotPassword() {
                     <View className="relative w-full" style={{ width: "100%" }}>
                       <TextInput
                         placeholder="hello@example.com"
-                        placeholderTextColor="#A3A3A3"
+                        placeholderTextColor={colors.secondary}
                         value={email}
                         onChangeText={(text) => {
                           setEmail(text);
@@ -306,14 +307,14 @@ export default function ForgotPassword() {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoCorrect={false}
-                        selectionColor="#3525cd"
+                        selectionColor={colors.accent}
                         accessibilityLabel="Email address"
-                        className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
+                        className="w-full bg-surface border rounded-xl px-4 py-3 text-primary text-body-md"
                         style={{
                           fontFamily: "Inter",
                           lineHeight: 24,
                           width: "100%",
-                          borderColor: emailError ? "#EF4444" : (isEmailFocused ? "#3525cd" : "#E2E1EC"),
+                          borderColor: emailError ? colors.danger : (isEmailFocused ? colors.accent : colors.border),
                           borderWidth: emailError || isEmailFocused ? 2 : 1,
                           paddingVertical: emailError || isEmailFocused ? 11 : 12,
                           paddingHorizontal: emailError || isEmailFocused ? 15 : 16,
@@ -322,7 +323,7 @@ export default function ForgotPassword() {
                     </View>
                     {emailError ? (
                       <Text
-                        className="text-[#EF4444] text-[12px] mt-[2px]"
+                        className="text-danger text-[12px] mt-[2px]"
                         style={{ fontFamily: "Inter", lineHeight: 16 }}
                       >
                         {emailError}
@@ -341,8 +342,8 @@ export default function ForgotPassword() {
                         {
                           width: "100%",
                           height: 52,
-                          backgroundColor: pressed ? "#2518a3" : "#3525cd",
-                          borderRadius: 16,
+                          backgroundColor: pressed ? "#3B31C4" : colors.accent,
+                          borderRadius: 12,
                           alignItems: "center",
                           justifyContent: "center",
                           transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -354,7 +355,7 @@ export default function ForgotPassword() {
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
                         <Text
-                          className="text-[#ffffff] text-[16px] font-semibold"
+                          className="text-white text-[16px] font-semibold"
                           style={{ fontFamily: "Inter", lineHeight: 24 }}
                         >
                           Send Reset Code
@@ -370,7 +371,7 @@ export default function ForgotPassword() {
                   {/* Code Field */}
                   <View className="flex-col w-full" style={{ gap: 6, width: "100%" }}>
                     <Text
-                      className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
+                      className="text-secondary text-[10px] font-semibold uppercase tracking-wider"
                       style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                     >
                       Reset Code
@@ -378,7 +379,7 @@ export default function ForgotPassword() {
                     <View className="relative w-full" style={{ width: "100%" }}>
                       <TextInput
                         placeholder="Enter 6-digit code"
-                        placeholderTextColor="#A3A3A3"
+                        placeholderTextColor={colors.secondary}
                         value={code}
                         onChangeText={(text) => {
                           setCode(text);
@@ -389,14 +390,14 @@ export default function ForgotPassword() {
                         keyboardType="number-pad"
                         autoCapitalize="none"
                         autoCorrect={false}
-                        selectionColor="#3525cd"
+                        selectionColor={colors.accent}
                         accessibilityLabel="Reset verification code"
-                        className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
+                        className="w-full bg-surface border rounded-xl px-4 py-3 text-primary text-body-md"
                         style={{
                           fontFamily: "Inter",
                           lineHeight: 24,
                           width: "100%",
-                          borderColor: codeError ? "#EF4444" : (isCodeFocused ? "#3525cd" : "#E2E1EC"),
+                          borderColor: codeError ? colors.danger : (isCodeFocused ? colors.accent : colors.border),
                           borderWidth: codeError || isCodeFocused ? 2 : 1,
                           paddingVertical: codeError || isCodeFocused ? 11 : 12,
                           paddingHorizontal: codeError || isCodeFocused ? 15 : 16,
@@ -405,7 +406,7 @@ export default function ForgotPassword() {
                     </View>
                     {codeError ? (
                       <Text
-                        className="text-[#EF4444] text-[12px] mt-[2px]"
+                        className="text-danger text-[12px] mt-[2px]"
                         style={{ fontFamily: "Inter", lineHeight: 16 }}
                       >
                         {codeError}
@@ -416,7 +417,7 @@ export default function ForgotPassword() {
                   {/* Resend Code Section */}
                   <View className="items-center justify-center w-full" style={{ width: "100%", minHeight: 48 }}>
                     {countdown > 0 ? (
-                      <Text className="text-[#6C6B7E] text-[14px]" style={{ fontFamily: "Inter" }}>
+                      <Text className="text-secondary text-[14px]" style={{ fontFamily: "Inter" }}>
                         Resend code in <Text className="font-semibold">{countdown}s</Text>
                       </Text>
                     ) : (
@@ -431,7 +432,7 @@ export default function ForgotPassword() {
                             opacity: pressed ? 0.6 : 1,
                           })}
                         >
-                          <Text className="text-[#3525cd] font-semibold text-[14px]" style={{ fontFamily: "Inter" }}>
+                          <Text className="text-accent font-semibold text-[14px]" style={{ fontFamily: "Inter" }}>
                             Resend Code
                           </Text>
                         </Pressable>
@@ -455,8 +456,8 @@ export default function ForgotPassword() {
                         {
                           width: "100%",
                           height: 52,
-                          backgroundColor: pressed ? "#2518a3" : "#3525cd",
-                          borderRadius: 16,
+                          backgroundColor: pressed ? "#3B31C4" : colors.accent,
+                          borderRadius: 12,
                           alignItems: "center",
                           justifyContent: "center",
                           transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -468,7 +469,7 @@ export default function ForgotPassword() {
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
                         <Text
-                          className="text-[#ffffff] text-[16px] font-semibold"
+                          className="text-white text-[16px] font-semibold"
                           style={{ fontFamily: "Inter", lineHeight: 24 }}
                         >
                           Verify Code
@@ -484,7 +485,7 @@ export default function ForgotPassword() {
                   {/* Password Field */}
                   <View className="flex-col w-full" style={{ gap: 6, width: "100%" }}>
                     <Text
-                      className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
+                      className="text-secondary text-[10px] font-semibold uppercase tracking-wider"
                       style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                     >
                       New Password
@@ -492,7 +493,7 @@ export default function ForgotPassword() {
                     <View className="relative w-full justify-center" style={{ width: "100%" }}>
                       <TextInput
                         placeholder="••••••••"
-                        placeholderTextColor="#A3A3A3"
+                        placeholderTextColor={colors.secondary}
                         value={newPassword}
                         onChangeText={(text) => {
                           setNewPassword(text);
@@ -501,14 +502,14 @@ export default function ForgotPassword() {
                         onFocus={() => setIsPasswordFocused(true)}
                         onBlur={() => setIsPasswordFocused(false)}
                         secureTextEntry={!showPassword}
-                        selectionColor="#3525cd"
+                        selectionColor={colors.accent}
                         accessibilityLabel="New Password"
-                        className="w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] text-[16px] py-[12px]"
+                        className="w-full bg-surface border rounded-xl pl-[16px] pr-[56px] text-primary text-body-md py-[12px]"
                         style={{
                           fontFamily: "Inter",
                           width: "100%",
                           letterSpacing: showPassword ? 0 : 4,
-                          borderColor: passwordError ? "#EF4444" : (isPasswordFocused ? "#3525cd" : "#E2E1EC"),
+                          borderColor: passwordError ? colors.danger : (isPasswordFocused ? colors.accent : colors.border),
                           borderWidth: passwordError || isPasswordFocused ? 2 : 1,
                           paddingLeft: passwordError || isPasswordFocused ? 15 : 16,
                           paddingRight: 56,
@@ -531,7 +532,7 @@ export default function ForgotPassword() {
                         })}
                       >
                         <Text
-                          className="text-[#3525cd] text-[10px] font-semibold uppercase tracking-wider"
+                          className="text-accent text-[10px] font-semibold uppercase tracking-wider"
                           style={{ fontFamily: "Inter" }}
                         >
                           {showPassword ? "Hide" : "Show"}
@@ -540,7 +541,7 @@ export default function ForgotPassword() {
                     </View>
                     {passwordError ? (
                       <Text
-                        className="text-[#EF4444] text-[12px] mt-[2px]"
+                        className="text-danger text-[12px] mt-[2px]"
                         style={{ fontFamily: "Inter", lineHeight: 16 }}
                       >
                         {passwordError}
@@ -559,8 +560,8 @@ export default function ForgotPassword() {
                         {
                           width: "100%",
                           height: 52,
-                          backgroundColor: pressed ? "#2518a3" : "#3525cd",
-                          borderRadius: 16,
+                          backgroundColor: pressed ? "#3B31C4" : colors.accent,
+                          borderRadius: 12,
                           alignItems: "center",
                           justifyContent: "center",
                           transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -572,7 +573,7 @@ export default function ForgotPassword() {
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
                         <Text
-                          className="text-[#ffffff] text-[16px] font-semibold"
+                          className="text-white text-[16px] font-semibold"
                           style={{ fontFamily: "Inter", lineHeight: 24 }}
                         >
                           Reset Password
@@ -592,7 +593,7 @@ export default function ForgotPassword() {
                     accessibilityLabel="Back to Log In"
                     style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
                   >
-                    <Text className="text-[#3525cd] text-[16px] font-semibold" style={{ fontFamily: "Inter", lineHeight: 24 }}>
+                    <Text className="text-accent text-[16px] font-semibold" style={{ fontFamily: "Inter", lineHeight: 24 }}>
                       Back to Log In
                     </Text>
                   </Pressable>

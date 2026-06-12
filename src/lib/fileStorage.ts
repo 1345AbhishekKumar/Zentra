@@ -139,9 +139,17 @@ export async function deleteFile(uri: string): Promise<void> {
  */
 export async function readBase64(uri: string): Promise<string> {
   if (Platform.OS === "web") return "";
-  return await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  try {
+    return await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  } catch (error) {
+    throw new Error(
+      `[fileStorage] Failed to read base64 from URI: ${uri}. Original error: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
 }
 
 /**
@@ -149,9 +157,17 @@ export async function readBase64(uri: string): Promise<string> {
  */
 export async function readString(uri: string): Promise<string> {
   if (Platform.OS === "web") return "";
-  return await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
+  try {
+    return await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+  } catch (error) {
+    throw new Error(
+      `[fileStorage] Failed to read string from URI: ${uri}. Original error: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
 }
 
 /**

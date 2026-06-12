@@ -695,11 +695,13 @@ export default function DocumentsScreen() {
         onClose={() => setIsBulkDeleteModalVisible(false)}
         onConfirm={handleConfirmBulkDelete}
         title="Delete Selected Items"
-        message={`Are you sure you want to permanently delete the selected ${
-          selectedFolderNames.size > 0 ? `${selectedFolderNames.size} folder(s)` : ""
-        }${selectedFolderNames.size > 0 && selectedDocumentIds.size > 0 ? " and " : ""}${
-          selectedDocumentIds.size > 0 ? `${selectedDocumentIds.size} document(s)` : ""
-        }? All associated notifications and files will be removed. This action cannot be undone.`}
+        message={`Are you sure you want to permanently delete the selected ${(() => {
+          const folderCount = selectedFolderNames.size;
+          const docCount = selectedDocumentIds.size;
+          const folderStr = folderCount > 0 ? `${folderCount} ${folderCount === 1 ? "folder" : "folders"}` : "";
+          const docStr = docCount > 0 ? `${docCount} ${docCount === 1 ? "document" : "documents"}` : "";
+          return [folderStr, docStr].filter(Boolean).join(" and ");
+        })()}? All associated notifications and files will be removed. This action cannot be undone.`}
         confirmLabel="Delete"
         isDestructive
       />

@@ -100,7 +100,7 @@ export function useProfileNotifications() {
       await cancelAllNotifications();
     } else {
       await rescheduleAll(
-        notificationSettings.advanceNoticeDays,
+        notificationSettings.advanceNoticeDays ?? [],
         reminderTime,
       );
     }
@@ -110,7 +110,7 @@ export function useProfileNotifications() {
   const handleSaveTime = async (time24: string) => {
     updateNotificationSettings({ reminderTime: time24 });
     if (notificationSettings.globalEnabled) {
-      await rescheduleAll(notificationSettings.advanceNoticeDays, time24);
+      await rescheduleAll(notificationSettings.advanceNoticeDays ?? [], time24);
     }
   };
 

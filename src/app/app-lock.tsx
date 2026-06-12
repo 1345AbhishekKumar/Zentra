@@ -13,6 +13,10 @@ import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppLock, getLocalAuthModule } from "@/hooks/useAppLock";
+import ScalePressable from "@/components/ScalePressable";
+
+const FINGERPRINT = 1;
+const FACIAL_RECOGNITION = 2;
 
 export default function AppLockScreen() {
   const router = useRouter();
@@ -25,7 +29,7 @@ export default function AppLockScreen() {
       router.back();
       return;
     }
-    router.replace("/(tabs)/profile" as any);
+    router.replace("/(tabs)/profile");
   };
 
   useEffect(() => {
@@ -44,9 +48,9 @@ export default function AppLockScreen() {
             return;
           }
           const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-          if (types.includes(2)) { // FACIAL_RECOGNITION = 2
+          if (types.includes(FACIAL_RECOGNITION)) {
             setAuthMethod("Face ID");
-          } else if (types.includes(1)) { // FINGERPRINT = 1
+          } else if (types.includes(FINGERPRINT)) {
             setAuthMethod("Fingerprint");
           } else {
             setAuthMethod("Device PIN");
@@ -127,12 +131,12 @@ export default function AppLockScreen() {
                 </Text>
               </View>
               <Switch
-                value={isLockEnabled}
+                value={isLockEnabled ?? false}
                 onValueChange={handleToggleLock}
-                trackColor={{ false: "#E5E7EB", true: colors.accent }}
-                thumbColor={isLockEnabled ? "#FFFFFF" : "#F3F4F6"}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor={isLockEnabled ? colors.surface : colors.background}
                 accessibilityRole="switch"
-                accessibilityState={{ checked: isLockEnabled }}
+                accessibilityState={{ checked: !!isLockEnabled }}
                 accessibilityLabel="Require authentication to open Zentra"
               />
             </View>
@@ -153,7 +157,7 @@ export default function AppLockScreen() {
           {/* Test Button & Info text */}
           {isLockEnabled && (
             <>
-              <Pressable
+              <ScalePressable
                 onPress={handleTestAuth}
                 accessibilityRole="button"
                 accessibilityLabel="Test Authentication"
@@ -169,7 +173,7 @@ export default function AppLockScreen() {
                 <Text className="text-white text-body-lg font-semibold font-display">
                   Test Authentication
                 </Text>
-              </Pressable>
+              </ScalePressable>
 
               <Text className="text-caption text-secondary text-center mt-4 px-4 leading-5">
                 If biometrics are unavailable, your device PIN will be used as a fallback.

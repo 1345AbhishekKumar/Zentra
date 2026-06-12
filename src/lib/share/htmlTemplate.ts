@@ -2,6 +2,15 @@ import { ZentraDocument } from "@/types";
 import { formatDate, daysUntilExpiry, isExpired } from "../date";
 import { mimeTypeFor } from "./mime";
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function generateShareHtml(doc: ZentraDocument, base64Data: string): string {
   const formattedExpiry = formatDate(doc.expiryDate);
   const notes = doc.notes?.trim() || "None";
@@ -20,12 +29,16 @@ export function generateShareHtml(doc: ZentraDocument, base64Data: string): stri
     statusColor = "#F59E0B"; // amber
   }
 
+  const safeName = escapeHtml(doc.name);
+  const safeCategory = escapeHtml(doc.category);
+  const safeNotes = escapeHtml(notes);
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${doc.name} - Zentra Vault</title>
+  <title>${safeName} - Zentra Vault</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -130,11 +143,11 @@ export function generateShareHtml(doc: ZentraDocument, base64Data: string): stri
       <div class="grid">
         <div class="field">
           <div class="label">Document Name</div>
-          <div class="value">${doc.name}</div>
+          <div class="value">${safeName}</div>
         </div>
         <div class="field">
           <div class="label">Category</div>
-          <div class="value">${doc.category}</div>
+          <div class="value">${safeCategory}</div>
         </div>
         <div class="field">
           <div class="label">Expiry Date</div>
@@ -149,7 +162,7 @@ export function generateShareHtml(doc: ZentraDocument, base64Data: string): stri
       </div>
       <div class="notes-section">
         <div class="label">Notes</div>
-        <div class="value" style="font-weight: normal; font-size: 14px; white-space: pre-wrap; color: #374151;">${notes}</div>
+        <div class="value" style="font-weight: normal; font-size: 14px; white-space: pre-wrap; color: #374151;">${safeNotes}</div>
       </div>
       <div class="image-section">
         <div class="label" style="margin-bottom: 12px; text-align: left;">Attached Document Image</div>

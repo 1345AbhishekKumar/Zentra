@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Linking } from "react-native";
 import { requireOptionalNativeModule } from "expo-modules-core";
-import { showAlert } from "@/store/alertStore";
+import { showAlert, AlertButton } from "@/store/alertStore";
 import { withIgnoreAppLock } from "./useAppLock";
 
 interface GlobalWithNativeFlags {
@@ -35,7 +35,12 @@ const safeRequireImagePicker = () => {
   return null;
 };
 
-export function useProfilePhoto(user: any) {
+export interface ProfilePhotoUser {
+  hasImage: boolean;
+  setProfileImage: (params: { file: string | null }) => Promise<unknown>;
+}
+
+export function useProfilePhoto(user: ProfilePhotoUser | null | undefined) {
   const [isUploading, setIsUploading] = useState(false);
   const isMountedRef = useRef(true);
 
@@ -217,7 +222,7 @@ export function useProfilePhoto(user: any) {
   };
 
   const handleAvatarPress = () => {
-    const options: any[] = [
+    const options: AlertButton[] = [
       { text: "📷 Take Photo", onPress: handleTakePhoto },
       { text: "🖼 Choose from Gallery", onPress: handleChooseFromGallery },
     ];

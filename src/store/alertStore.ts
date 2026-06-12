@@ -40,6 +40,10 @@ export const useAlertStore = create<AlertState>((set) => ({
   hideAlert: () =>
     set({
       visible: false,
+      title: "",
+      message: "",
+      type: "info",
+      buttons: [],
     }),
 }));
 

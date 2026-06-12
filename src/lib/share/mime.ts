@@ -11,7 +11,7 @@ export function imageMimeFromUri(uri?: string): string {
     webp: "image/webp",
     heic: "image/heic",
     heif: "image/heif",
-    bgColor: "image/bmp",
+    bmp: "image/bmp",
     svg: "image/svg+xml",
   };
   return (ext && mimeMap[ext]) || "image/*";

@@ -1,4 +1,4 @@
-import { ZentraDocument, NotificationSettings } from "@/types";
+import { ZentraDocument, NotificationSettings, TimeString, createTimeString } from "@/types";
 import { parseISO, subDays } from "date-fns";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -66,6 +66,26 @@ export async function hasPermission(): Promise<boolean> {
   }
 }
 
+function parseAndValidateReminderTime(reminderTime: string): { hours: number; minutes: number } | null {
+  if (!reminderTime || !/^\d{1,2}:\d{2}$/.test(reminderTime)) {
+    return null;
+  }
+  const [hoursStr, minutesStr] = reminderTime.split(":");
+  const hours = parseInt(hoursStr, 10);
+  const minutes = parseInt(minutesStr, 10);
+  if (
+    !Number.isFinite(hours) ||
+    !Number.isFinite(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+  return { hours, minutes };
+}
+
 /**
  * Schedules local notifications for a document based on advanceNoticeDays.
  * Cancels any existing notifications for that document ID first.
@@ -74,7 +94,7 @@ export async function hasPermission(): Promise<boolean> {
 export async function scheduleDocumentNotifications(
   doc: ZentraDocument,
   advanceNoticeDays: number[],
-  reminderTime: string = "09:00",
+  reminderTime: TimeString = createTimeString("09:00"),
 ): Promise<void> {
   try {
     // First cancel any existing notifications for this document
@@ -85,17 +105,8 @@ export async function scheduleDocumentNotifications(
       return;
     }
 
-    // Ensure the notification channel is created on Android
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("zentra-alerts", {
-        name: "Zentra Expiry Alerts",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#4F46E5",
-      });
-    }
+    if (advanceNoticeDays.length === 0) return;
 
-    // Check permissions before scheduling, request dynamically if not yet granted
     let hasPerm = await hasPermission();
     if (!hasPerm) {
       hasPerm = await requestPermissions();
@@ -108,9 +119,12 @@ export async function scheduleDocumentNotifications(
     }
 
     const expiryDate = parseISO(doc.expiryDate);
-    const [hoursStr, minutesStr] = reminderTime.split(":");
-    const hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
+    const timeParsed = parseAndValidateReminderTime(reminderTime);
+    if (!timeParsed) {
+      console.warn(`[Notifications] Skipping schedule: invalid reminderTime "${reminderTime}"`);
+      return;
+    }
+    const { hours, minutes } = timeParsed;
 
     for (const daysBeforeExpiry of advanceNoticeDays) {
       const triggerDate = subDays(expiryDate, daysBeforeExpiry);
@@ -212,9 +226,12 @@ export async function syncAllNotifications(
 
     // 3. Compile all future triggers
     const now = Date.now();
-    const [hoursStr, minutesStr] = (settings.reminderTime || "09:00").split(":");
-    const hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
+    const timeParsed = parseAndValidateReminderTime(settings.reminderTime || "09:00");
+    if (!timeParsed) {
+      console.warn(`[Notifications] Skipping sync: invalid reminderTime "${settings.reminderTime}"`);
+      return;
+    }
+    const { hours, minutes } = timeParsed;
 
     interface NotificationTrigger {
       doc: ZentraDocument;
@@ -232,8 +249,17 @@ export async function syncAllNotifications(
 
       const expiryDate = parseISO(doc.expiryDate);
 
-      // Use the global advanceNoticeDays
-      for (const daysBeforeExpiry of settings.advanceNoticeDays) {
+      // Use the global advanceNoticeDays merged with customNoticeDays
+      const rawDays = [
+        ...(settings.advanceNoticeDays || []),
+        ...(settings.customNoticeDays || []),
+      ];
+      // Deduplicate and validate numeric values
+      const combinedDays = Array.from(new Set(rawDays))
+        .filter((d): d is number => typeof d === "number" && Number.isFinite(d) && d >= 0)
+        .sort((a, b) => a - b);
+
+      for (const daysBeforeExpiry of combinedDays) {
         const triggerDate = subDays(expiryDate, daysBeforeExpiry);
         triggerDate.setHours(hours, minutes, 0, 0);
 
@@ -299,7 +325,7 @@ export async function syncAllNotifications(
  * Wrapper for expo-notifications received listener.
  */
 export function addNotificationReceivedListener(
-  listener: (notification: any) => void
+  listener: (notification: Notifications.Notification) => void
 ): { remove: () => void } {
   return Notifications.addNotificationReceivedListener(listener);
 }
@@ -308,7 +334,7 @@ export function addNotificationReceivedListener(
  * Wrapper for expo-notifications response received listener.
  */
 export function addNotificationResponseReceivedListener(
-  listener: (response: any) => void
+  listener: (response: Notifications.NotificationResponse) => void
 ): { remove: () => void } {
   return Notifications.addNotificationResponseReceivedListener(listener);
 }
@@ -316,6 +342,6 @@ export function addNotificationResponseReceivedListener(
 /**
  * Wrapper for expo-notifications getting the last response.
  */
-export async function getLastNotificationResponse(): Promise<any> {
+export async function getLastNotificationResponse(): Promise<Notifications.NotificationResponse | null> {
   return await Notifications.getLastNotificationResponseAsync();
 }

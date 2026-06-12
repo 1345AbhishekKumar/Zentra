@@ -1,7 +1,7 @@
 import { colors } from "@/theme/tokens";
 import { DocumentFileType } from "@/types";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import type React from "react";
 
 export type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
 

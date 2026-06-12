@@ -60,7 +60,7 @@ export default function ActionSheet({
               const isLast = index === options.length - 1;
               return (
                 <ScalePressable
-                  key={index}
+                  key={option.label}
                   onPress={() => {
                     onClose();
                     // Small delay to let modal close before action to avoid navigation issues

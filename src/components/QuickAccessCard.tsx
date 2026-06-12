@@ -36,8 +36,8 @@ export default function QuickAccessCard({
       delayLongPress={200}
       accessibilityRole="button"
       accessibilityLabel={`Open ${doc.name}`}
-      className="bg-surface rounded-2xl p-4 mr-3 active:opacity-90"
-      style={styles.quickCard}
+      className="bg-surface rounded-2xl p-4 mr-3 active:opacity-90 border border-[#F0F0F2] w-[140px]"
+      style={styles.quickCardShadow}
     >
       <View className="flex-row justify-between items-start mb-3">
         <View
@@ -51,7 +51,7 @@ export default function QuickAccessCard({
             <Feather
               name={isSelected ? "check-circle" : "circle"}
               size={20}
-              color={isSelected ? colors.accent : "#B3B3B3"}
+              color={isSelected ? colors.accent : colors.secondary}
             />
           </View>
         )}
@@ -65,14 +65,11 @@ export default function QuickAccessCard({
 }
 
 const styles = StyleSheet.create({
-  quickCard: {
-    width: 140,
+  quickCardShadow: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
-    borderWidth: 1,
-    borderColor: "#F0F0F2",
   },
 });

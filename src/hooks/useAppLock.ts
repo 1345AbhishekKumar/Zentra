@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { AppState } from "react-native";
 
+import * as LocalAuthentication from "expo-local-authentication";
+
 const LOCK_KEY = "zentra_app_lock_enabled";
 const listeners = new Set<() => void>();
 
@@ -40,15 +42,11 @@ export async function withIgnoreAppLock<T>(fn: () => Promise<T>): Promise<T> {
 
 export const getLocalAuthModule = async () => {
   if (!isLocalAuthAvailable) return null;
-  try {
-    return await import("expo-local-authentication");
-  } catch {
-    return null;
-  }
+  return LocalAuthentication;
 };
 
 export function useAppLock() {
-  const [isLockEnabled, setIsLockEnabled] = useState(false);
+  const [isLockEnabled, setIsLockEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     const loadPreference = async () => {
