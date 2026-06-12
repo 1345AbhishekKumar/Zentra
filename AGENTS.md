@@ -16,8 +16,6 @@ Always use bun for installing packages
 
 Read the CLAUDE.md file
 
-Use Typescript only
-
 If I provide a problem, solve it and then update report.md with the solution and any relevant details.
 
 ## Project Overview

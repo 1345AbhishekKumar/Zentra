@@ -118,6 +118,11 @@ export function formatDateTime(dateStr: string): string {
  * Returns the number of calendar days elapsed since a given date string
  */
 export function daysSinceDate(dateStr: string): number {
-  return differenceInCalendarDays(startOfToday(), parseISO(dateStr));
+  try {
+    return differenceInCalendarDays(startOfToday(), parseISO(dateStr));
+  } catch (error) {
+    console.warn(`[date] Failed to parse days since date: ${dateStr}`, error);
+    return 0;
+  }
 }
 

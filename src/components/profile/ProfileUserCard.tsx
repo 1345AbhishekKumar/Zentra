@@ -37,13 +37,11 @@ export default function ProfileUserCard({
           {avatarUrl ? (
             <Image
               source={{ uri: avatarUrl }}
-              className="w-16 h-16 rounded-full"
-              style={styles.avatarBorder}
+              className="w-16 h-16 rounded-full border-2 border-soft-accent"
             />
           ) : (
             <View
-              className="w-16 h-16 rounded-full items-center justify-center bg-soft-accent"
-              style={styles.avatarBorder}
+              className="w-16 h-16 rounded-full items-center justify-center bg-soft-accent border-2 border-soft-accent"
             >
               <Text className="text-accent text-h1 font-bold">{initials}</Text>
             </View>
@@ -92,10 +90,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
-  },
-  avatarBorder: {
-    borderWidth: 2,
-    borderColor: "#EEF2FF",
   },
   editBadgeShadow: {
     shadowColor: "#000",

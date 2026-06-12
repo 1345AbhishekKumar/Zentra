@@ -36,10 +36,12 @@ export default function ReminderTimeModal({
       let h12 = h24 % 12;
       if (h12 === 0) h12 = 12;
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedHour(h12);
-      setSelectedMinute(m24);
-      setSelectedPeriod(period);
+      const timer = setTimeout(() => {
+        setSelectedHour(h12);
+        setSelectedMinute(m24);
+        setSelectedPeriod(period);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [visible, currentTime24]);
 

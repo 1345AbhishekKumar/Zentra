@@ -18,3 +18,7 @@ export interface ZentraDocument {
   isDeleted?: boolean;               // true when in the recently deleted bin/trash
   deletedAt?: string;                // ISO 8601 datetime string when soft-deleted
 }
+
+export interface ZentraDocumentWithUrgency extends ZentraDocument {
+  urgency: "expired" | "critical" | "warning" | "safe";
+}

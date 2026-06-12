@@ -1,7 +1,7 @@
 import { VerificationModal } from "@/components/VerificationModal";
 import { images } from "@/constants/images";
-import { useSignUp, useSSO } from "@clerk/expo";
 import { colors } from "@/theme/tokens";
+import { useSignUp, useSSO } from "@clerk/expo";
 import { Image } from "expo-image";
 import { Link, Stack, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -200,7 +200,7 @@ export default function SignUp() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#FFFFFF]">
+    <SafeAreaView className="flex-1 bg-surface">
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -215,7 +215,7 @@ export default function SignUp() {
           keyboardShouldPersistTaps="handled"
         >
           <View
-            className="w-full max-w-md px-[24px] py-[32px] justify-center"
+            className="w-full max-w-md px-6 py-8 justify-center"
             style={{ width: "100%", maxWidth: 448 }}
           >
             <View
@@ -227,7 +227,7 @@ export default function SignUp() {
                 className="items-center w-full"
                 style={{ gap: 8, width: "100%" }}
               >
-                <View className="flex-row justify-center mb-[2px]">
+                <View className="flex-row justify-center mb-0.5">
                   <Image
                     source={images.logo}
                     style={{ width: 100, height: 100 }}
@@ -235,7 +235,7 @@ export default function SignUp() {
                   />
                 </View>
                 <Text
-                  className="text-[#12121A] text-[44px] italic tracking-[-0.02em]"
+                  className="text-primary text-[44px] italic tracking-[-0.02em]"
                   style={{
                     fontFamily: "PlayfairDisplayItalic",
                     lineHeight: 48,
@@ -244,7 +244,7 @@ export default function SignUp() {
                   Zentra
                 </Text>
                 <Text
-                  className="text-[#6C6B7E] text-[16px]"
+                  className="text-secondary text-[16px]"
                   style={{ fontFamily: "Inter", lineHeight: 24 }}
                 >
                   Create an account
@@ -262,7 +262,7 @@ export default function SignUp() {
                   style={{ gap: 6, width: "100%" }}
                 >
                   <Text
-                    className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-secondary text-[10px] font-semibold uppercase tracking-wider"
                     style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                   >
                     Email
@@ -270,7 +270,7 @@ export default function SignUp() {
                   <View className="relative w-full" style={{ width: "100%" }}>
                     <TextInput
                       placeholder="hello@example.com"
-                      placeholderTextColor="#A3A3A3"
+                      placeholderTextColor={colors.secondary}
                       value={email}
                       onChangeText={(text) => {
                         setEmail(text);
@@ -281,18 +281,18 @@ export default function SignUp() {
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
-                      selectionColor="#3525cd"
+                      selectionColor={colors.accent}
                       accessibilityLabel="Email address"
-                      className="w-full bg-[#FCFCFD] border rounded-lg px-[16px] py-[12px] text-[#12121A] text-[16px]"
+                      className="w-full bg-surface border rounded-xl px-4 py-3 text-primary text-body-md"
                       style={{
                         fontFamily: "Inter",
                         lineHeight: 24,
                         width: "100%",
                         borderColor: emailError
-                          ? "#EF4444"
+                          ? colors.danger
                           : isEmailFocused
-                            ? "#3525cd"
-                            : "#E2E1EC",
+                            ? colors.accent
+                            : colors.border,
                         borderWidth: emailError || isEmailFocused ? 2 : 1,
                         paddingVertical: emailError || isEmailFocused ? 11 : 12,
                         paddingHorizontal:
@@ -302,7 +302,7 @@ export default function SignUp() {
                   </View>
                   {emailError ? (
                     <Text
-                      className="text-[#EF4444] text-[12px] mt-0.5"
+                      className="text-danger text-[12px] mt-0.5"
                       style={{ fontFamily: "Inter", lineHeight: 16 }}
                     >
                       {emailError}
@@ -310,13 +310,13 @@ export default function SignUp() {
                   ) : null}
                 </View>
 
-                {/* Password Field */}
+                 {/* Password Field */}
                 <View
                   className="flex-col w-full"
                   style={{ gap: 6, width: "100%" }}
                 >
                   <Text
-                    className="text-[#6C6B7E] text-[10px] font-semibold uppercase tracking-wider"
+                    className="text-secondary text-[10px] font-semibold uppercase tracking-wider"
                     style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                   >
                     Password
@@ -327,7 +327,7 @@ export default function SignUp() {
                   >
                     <TextInput
                       placeholder="••••••••"
-                      placeholderTextColor="#A3A3A3"
+                      placeholderTextColor={colors.secondary}
                       value={password}
                       onChangeText={(text) => {
                         setPassword(text);
@@ -336,22 +336,18 @@ export default function SignUp() {
                       onFocus={() => setIsPasswordFocused(true)}
                       onBlur={() => setIsPasswordFocused(false)}
                       secureTextEntry={!showPassword}
-                      selectionColor="#3525cd"
+                      selectionColor={colors.accent}
                       accessibilityLabel="Password"
-                      className={`w-full bg-[#FCFCFD] border rounded-lg pl-[16px] pr-[56px] text-[#12121A] ${
-                        showPassword
-                          ? "text-[16px] py-[12px]"
-                          : "text-[16px] py-[12px]"
-                      }`}
+                      className="w-full bg-surface border rounded-xl pl-4 pr-14 text-primary text-body-md py-3"
                       style={{
                         fontFamily: "Inter",
                         width: "100%",
                         letterSpacing: showPassword ? 0 : 4,
                         borderColor: passwordError
-                          ? "#EF4444"
+                          ? colors.danger
                           : isPasswordFocused
-                            ? "#3525cd"
-                            : "#E2E1EC",
+                            ? colors.accent
+                            : colors.border,
                         borderWidth: passwordError || isPasswordFocused ? 2 : 1,
                         paddingLeft:
                           passwordError || isPasswordFocused ? 15 : 16,
@@ -379,7 +375,7 @@ export default function SignUp() {
                       })}
                     >
                       <Text
-                        className="text-[#3525cd] text-[10px] font-semibold uppercase tracking-wider"
+                        className="text-accent text-[10px] font-semibold uppercase tracking-wider"
                         style={{ fontFamily: "Inter" }}
                       >
                         {showPassword ? "Hide" : "Show"}
@@ -388,7 +384,7 @@ export default function SignUp() {
                   </View>
                   {passwordError ? (
                     <Text
-                      className="text-[#EF4444] text-[12px] mt-[2px]"
+                      className="text-danger text-[12px] mt-[2px]"
                       style={{ fontFamily: "Inter", lineHeight: 16 }}
                     >
                       {passwordError}
@@ -408,8 +404,8 @@ export default function SignUp() {
                       {
                         width: "100%",
                         height: 52,
-                        backgroundColor: pressed ? "#2518a3" : "#3525cd",
-                        borderRadius: 16,
+                        backgroundColor: pressed ? "#3B31C4" : colors.accent,
+                        borderRadius: 12,
                         alignItems: "center",
                         justifyContent: "center",
                         transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -421,7 +417,7 @@ export default function SignUp() {
                       <ActivityIndicator color="#FFFFFF" />
                     ) : (
                       <Text
-                        className="text-[#ffffff] text-[16px] font-semibold"
+                        className="text-white text-[16px] font-semibold"
                         style={{ fontFamily: "Inter", lineHeight: 24 }}
                       >
                         Sign Up
@@ -433,13 +429,12 @@ export default function SignUp() {
                 {/* Terms of Service & Privacy Policy links */}
                 <View className="items-center w-full mt-2 px-2">
                   <Text
-                    className="text-[#6C6B7E] text-[12px] text-center font-sans"
+                    className="text-secondary text-[12px] text-center font-sans"
                     style={{ lineHeight: 18 }}
                   >
                     By creating an account, you agree to our{" "}
                     <Text
-                      style={{ color: colors.accent }}
-                      className="font-semibold underline text-[12px]"
+                      className="font-semibold underline text-[12px] text-accent"
                       onPress={() => router.push("/terms-of-service")}
                       accessibilityRole="link"
                       accessibilityLabel="Terms of Service"
@@ -448,8 +443,7 @@ export default function SignUp() {
                     </Text>{" "}
                     and{" "}
                     <Text
-                      style={{ color: colors.accent }}
-                      className="font-semibold underline text-[12px]"
+                      className="font-semibold underline text-[12px] text-accent"
                       onPress={() => router.push("/privacy-policy")}
                       accessibilityRole="link"
                       accessibilityLabel="Privacy Policy"
@@ -468,14 +462,14 @@ export default function SignUp() {
                 className="flex-row items-center py-[4px] w-full"
                 style={{ width: "100%" }}
               >
-                <View className="flex-1 border-t border-[#EAEAEF]" />
+                <View className="flex-1 border-t border-border" />
                 <Text
-                  className="flex-shrink-0 mx-[16px] text-[#6C6B7E] text-[12px] font-medium uppercase tracking-wider"
+                  className="flex-shrink-0 mx-[16px] text-secondary text-[12px] font-medium uppercase tracking-wider"
                   style={{ fontFamily: "Inter", lineHeight: 14.4 }}
                 >
                   Or
                 </Text>
-                <View className="flex-1 border-t border-[#EAEAEF]" />
+                <View className="flex-1 border-t border-border" />
               </View>
 
               {/* Google Sign In */}
@@ -488,10 +482,10 @@ export default function SignUp() {
                   style={({ pressed }) => ({
                     width: "100%",
                     height: 52,
-                    backgroundColor: pressed ? "#F0EFF7" : "#FFFFFF",
-                    borderColor: "#E2E1EC",
+                    backgroundColor: pressed ? colors.background : colors.surface,
+                    borderColor: colors.border,
                     borderWidth: 1,
-                    borderRadius: 16,
+                    borderRadius: 12,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
@@ -501,7 +495,7 @@ export default function SignUp() {
                   })}
                 >
                   {isGoogleLoading ? (
-                    <ActivityIndicator color="#3525cd" />
+                    <ActivityIndicator color={colors.accent} />
                   ) : (
                     <>
                       <Image
@@ -510,7 +504,7 @@ export default function SignUp() {
                         contentFit="contain"
                       />
                       <Text
-                        className="text-[#12121A] text-[16px]"
+                        className="text-primary text-[16px]"
                         style={{ fontFamily: "Inter", lineHeight: 24 }}
                       >
                         Sign up with Google
@@ -526,7 +520,7 @@ export default function SignUp() {
                 style={{ width: "100%" }}
               >
                 <Text
-                  className="text-[#6C6B7E] text-[16px]"
+                  className="text-secondary text-[16px]"
                   style={{ fontFamily: "Inter", lineHeight: 24 }}
                 >
                   Already have an account?{" "}
@@ -539,7 +533,7 @@ export default function SignUp() {
                     style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
                   >
                     <Text
-                      className="text-[#3525cd] text-[16px] font-semibold"
+                      className="text-accent text-[16px] font-semibold"
                       style={{ fontFamily: "Inter", lineHeight: 24 }}
                     >
                       Log In
@@ -566,7 +560,7 @@ const styles = StyleSheet.create({
   buttonShadow: {
     ...Platform.select({
       ios: {
-        shadowColor: "#3525cd",
+        shadowColor: colors.accent,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.2,
         shadowRadius: 12,
@@ -575,7 +569,7 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
       web: {
-        boxShadow: "0 8px 24px rgba(53, 37, 205, 0.2)",
+        boxShadow: "0 8px 24px rgba(79, 70, 229, 0.2)",
       } as any,
     }),
   },

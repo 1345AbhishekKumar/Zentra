@@ -5,9 +5,9 @@
     "src/app/**/*.{ts,tsx}"
   ],
   "rules": {
-    "unused-dependencies": "off",
-    "unused-dev-dependencies": "off",
-    "unused-optional-dependencies": "off",
-    "test-only-dependencies": "off"
+    "unused-dependencies": "warn",
+    "unused-dev-dependencies": "warn",
+    "unused-optional-dependencies": "warn",
+    "test-only-dependencies": "warn"
   }
 }

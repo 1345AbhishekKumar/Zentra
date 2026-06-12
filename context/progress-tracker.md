@@ -87,6 +87,13 @@
   - Created [ocr.ts](file:///d:/MyProjects/Expo_Projects/Zentra/src/lib/ocr.ts) utility mapping regex-based date extractors, keyword category selectors, and title normalizers, alongside a robust Sandbox Mock mode for Expo Go / Web testing.
   - Modified [AddDocumentForm.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/AddDocumentForm.tsx) to coordinate scanning triggers, display premium loading indicators, block submit button during scan, and prompt users with a confirmation alert before filling in parsed values.
   - Verified type safety and lint cleanliness with `bunx tsc --noEmit` and `bun run lint` (0 errors, 0 warnings).
+- **TypeScript Type Safety & Linting Cleanup**:
+  - Resolved 4 compile-time type errors in `_layout.tsx`, `app-lock.tsx`, `ConfirmationModal.tsx`, and `CustomAlert.tsx` caused by strict type checks on nullable values and missing environment-specific type definitions (replacing `NodeJS.Timeout` with `ReturnType<typeof setTimeout>`).
+  - Resolved React hooks conditional rendering warning in `CustomAlert.tsx` by rearranging early return statements.
+  - Defer state updates inside `ReminderTimeModal.tsx` visibility synchronization effect using `setTimeout(..., 0)` to prevent cascading render warnings.
+  - Fixed `AddDocumentForm.tsx` ESLint error regarding direct ref access inside render by refactoring to a `useState` lazy initializer.
+  - Removed unused imports (`colors`, `useRef`, `daysUntilExpiry`) in `sign-up.tsx`, `AddDocumentForm.tsx`, and `calendar.tsx`.
+  - Verified that `bun tsc --noEmit` and `bun run lint` pass successfully with exactly 0 errors and 0 warnings.
 
 ## Open Questions
 - None.

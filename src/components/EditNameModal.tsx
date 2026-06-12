@@ -12,10 +12,16 @@ import ScalePressable from "@/components/ScalePressable";
 import { colors } from "@/theme/tokens";
 import { showAlert } from "@/store/alertStore";
 
+interface ClerkUser {
+  firstName: string | null;
+  lastName: string | null;
+  update: (params: { firstName: string; lastName: string }) => Promise<unknown>;
+}
+
 interface EditNameModalProps {
   visible: boolean;
   onClose: () => void;
-  user: any; // Clerk user object
+  user: ClerkUser | null | undefined;
 }
 
 export default function EditNameModal({ visible, onClose, user }: EditNameModalProps) {

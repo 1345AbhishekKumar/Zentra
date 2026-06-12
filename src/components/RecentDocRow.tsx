@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors } from "@/theme/tokens";
 import { ZentraDocument } from "@/types";
@@ -43,8 +43,9 @@ export default function RecentDocRow({
       delayLongPress={200}
       accessibilityRole="button"
       accessibilityLabel={`Open ${doc.name}`}
-      className="flex-row items-center px-4 py-3 active:bg-background"
-      style={!isLast ? styles.rowBorder : undefined}
+      className={`flex-row items-center px-4 py-3 active:bg-background ${
+        !isLast ? "border-b border-[#F0F0F2]" : ""
+      }`}
       activeScale={0.98}
     >
       <View
@@ -71,7 +72,7 @@ export default function RecentDocRow({
           <Feather
             name={isSelected ? "check-circle" : "circle"}
             size={22}
-            color={isSelected ? colors.accent : "#B3B3B3"}
+            color={isSelected ? colors.accent : colors.secondary}
           />
         </View>
       ) : (
@@ -88,10 +89,3 @@ export default function RecentDocRow({
     </ScalePressable>
   );
 }
-
-const styles = StyleSheet.create({
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F0F0F2",
-  },
-});

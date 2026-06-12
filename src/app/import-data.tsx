@@ -19,9 +19,11 @@ import * as FileSystem from "expo-file-system/legacy";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { withIgnoreAppLock } from "@/hooks/useAppLock";
 
+import { ZentraDocument, NotificationSettings } from "@/types";
+
 const isDocumentPickerNativeAvailable =
-  typeof (globalThis as any).__isDocumentPickerNativeAvailable === "boolean"
-    ? (globalThis as any).__isDocumentPickerNativeAvailable
+  typeof Reflect.get(globalThis, "__isDocumentPickerNativeAvailable") === "boolean"
+    ? !!Reflect.get(globalThis, "__isDocumentPickerNativeAvailable")
     : !!requireOptionalNativeModule("ExpoDocumentPicker");
 
 const safeRequireDocumentPicker = () => {
@@ -43,8 +45,8 @@ const safeRequireDocumentPicker = () => {
 interface BackupFormat {
   exportedAt?: string;
   appVersion?: string;
-  documents: any[];
-  notificationSettings?: any;
+  documents: ZentraDocument[];
+  notificationSettings?: NotificationSettings;
 }
 
 export default function ImportDataScreen() {
@@ -89,13 +91,16 @@ export default function ImportDataScreen() {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "application/json";
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
+      input.onchange = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event: any) => {
-          const text = event.target.result;
-          handleParseAndPreview(text);
+        reader.onload = (event: ProgressEvent<FileReader>) => {
+          const text = event.target?.result;
+          if (typeof text === "string") {
+            handleParseAndPreview(text);
+          }
         };
         reader.readAsText(file);
       };

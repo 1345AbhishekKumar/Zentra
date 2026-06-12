@@ -392,5 +392,47 @@ Replace the default Feather `file-text` icon in the bottom tab bar navigation (h
 - **ESLint**: `bun run lint` successfully verified with 0 errors/warnings.
 - **Fallow Static Analysis**: `npx fallow` validated clean.
 
+---
+
+# Report: TypeScript Type Fixes & Linting Cleanup
+
+## Problem Overview
+During compilation (`bun tsc --noEmit`), TypeScript flagged four type safety issues where potential `null` or `undefined` values were being passed to React Native components expecting strict types:
+1. `src/app/_layout.tsx`: The `visible` prop on the lock screen `<Modal>` was assigned an expression involving `isLockEnabled` (which could be `boolean | null`) and Clerk's `isSignedIn` (which could be `boolean | null | undefined`).
+2. `src/app/app-lock.tsx`: The `value` and `accessibilityState.checked` props on the `<Switch>` component were assigned `isLockEnabled`, which is typed as `boolean | null` in `useAppLock.ts`.
+3. `src/components/ConfirmationModal.tsx` & `src/components/CustomAlert.tsx`: The `timeoutRef` was declared with the Node-specific type `NodeJS.Timeout`, which is not available in the standard React Native / Expo browser/native runtime typings.
+
+Additionally, standard lint checks (`bun run lint`) highlighted multiple problems, including React hook rules violations (hooks called after early returns) in `CustomAlert.tsx`, and `setState` cascading renders in `ReminderTimeModal.tsx`.
+
+## Solution Architecture
+1. **Strict Boolean Casts**:
+   - In `_layout.tsx`, explicitly cast the lock screen `<Modal>` `visible` expression to boolean using `!!(...)`.
+   - In `app-lock.tsx`, updated the `<Switch>` element to use `value={isLockEnabled ?? false}` and `accessibilityState={{ checked: !!isLockEnabled }}`.
+2. **Platform-Independent Timer Typings**:
+   - In both `ConfirmationModal.tsx` and `CustomAlert.tsx`, replaced `NodeJS.Timeout` with `ReturnType<typeof setTimeout>`. This dynamically resolves to the correct timer handle type based on the host environment (native timer object or number), avoiding global Node namespace dependency.
+3. **React Hook Rules Correction (CustomAlert.tsx)**:
+   - Moved the early return statement `if (!visible) return null;` to execute after all React Hooks (`useAlertStore`, `useRef`, and `useEffect`) have been declared unconditionally, restoring compliance with React's hooks ordering rules.
+4. **Asynchronous State Updates (ReminderTimeModal.tsx)**:
+   - Wrapped the visibility synchronization `setState` calls inside a deferred `setTimeout(..., 0)` block to break the synchronous call stack and prevent cascading renders, resolving the ESLint warning.
+5. **Cleaned Unused Imports**:
+   - Removed unused `useRef` import in `AddDocumentForm.tsx`.
+   - Removed unused `colors` import in `src/app/(auth)/sign-up.tsx`.
+   - Removed unused `daysUntilExpiry` import in `src/app/(tabs)/calendar.tsx`.
+
+## Files Modified & Created
+- [_layout.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/_layout.tsx)
+- [app-lock.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/app-lock.tsx)
+- [ConfirmationModal.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/ConfirmationModal.tsx)
+- [CustomAlert.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/CustomAlert.tsx)
+- [AddDocumentForm.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/AddDocumentForm.tsx)
+- [ReminderTimeModal.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/components/ReminderTimeModal.tsx)
+- [sign-up.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/(auth)/sign-up.tsx)
+- [calendar.tsx](file:///d:/MyProjects/Expo_Projects/Zentra/src/app/(tabs)/calendar.tsx)
+
+## Verification
+- **TypeScript Check**: `bun tsc --noEmit` completed with 0 errors.
+- **ESLint**: `bun run lint` completed with 0 errors and 0 warnings.
+
+
 
 

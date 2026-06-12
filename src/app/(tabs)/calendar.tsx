@@ -16,19 +16,22 @@ import {
   parseISO,
   isToday,
 } from "date-fns";
-import { useDocumentStore } from "@/store/documentStore";
+import { useDocumentStore, selectDocumentsWithUrgency } from "@/store/documentStore";
 import { colors } from "@/theme/tokens";
 import DocumentCard from "@/components/DocumentCard";
 import ScalePressable from "@/components/ScalePressable";
 import EmptyState from "@/components/EmptyState";
-import { ZentraDocument } from "@/types";
-import { daysUntilExpiry } from "@/lib/date";
+import { ZentraDocumentWithUrgency } from "@/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarScreen() {
   const router = useRouter();
-  const { documents, toggleFavorite } = useDocumentStore();
+  const rawDocuments = useDocumentStore((state) => state.documents);
+  const documents = useMemo(() => {
+    return selectDocumentsWithUrgency({ documents: rawDocuments });
+  }, [rawDocuments]);
+  const toggleFavorite = useDocumentStore((state) => state.toggleFavorite);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
@@ -86,18 +89,18 @@ export default function CalendarScreen() {
   }, [activeDocuments]);
 
   // Calculate urgency color for a day
-  const getUrgencyColor = (docs: ZentraDocument[]) => {
+  const getUrgencyColor = (docs: ZentraDocumentWithUrgency[]) => {
     if (docs.length === 0) return null;
 
     let highestUrgency: "expired" | "critical" | "warning" | "safe" = "safe";
 
     for (const doc of docs) {
-      const days = daysUntilExpiry(doc.expiryDate);
-      if (days < 0) {
+      const urgency = doc.urgency;
+      if (urgency === "expired") {
         return colors.danger; // Expired -> Red
-      } else if (days <= 7) {
+      } else if (urgency === "critical") {
         highestUrgency = "critical"; // Critical -> Red
-      } else if (days <= 30 && highestUrgency !== "critical") {
+      } else if (urgency === "warning" && highestUrgency !== "critical") {
         highestUrgency = "warning"; // Warning -> Orange
       }
     }
@@ -302,10 +305,7 @@ export default function CalendarScreen() {
                   doc={doc}
                   viewMode="list"
                   onPress={() => {
-                    router.push({
-                      pathname: "/document/[id]",
-                      params: { id: doc.id },
-                    } as never);
+                    router.push(`/document/${doc.id}`);
                   }}
                   onFavoritePress={() => toggleFavorite(doc.id)}
                 />

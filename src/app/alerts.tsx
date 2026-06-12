@@ -204,7 +204,7 @@ export default function AlertsScreen() {
             style={styles.rowShadow}
           >
             <View className="flex-row items-center gap-1.5 mb-1">
-              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: "#F97316" }} />
+              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.danger }} />
               <Text className="text-caption text-secondary">Critical</Text>
             </View>
             <Text className="text-h1 font-bold text-primary">{criticalCount}</Text>

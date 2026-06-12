@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 import ScalePressable from "./ScalePressable";
 import StatusCircle from "./StatusCircle";
@@ -25,6 +25,22 @@ export default function ConfirmationModal({
   isDestructive = false,
 }: ConfirmationModalProps) {
   const confirmBtnBgClass = isDestructive ? "bg-danger" : "bg-accent";
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!visible && timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, [visible]);
 
   return (
     <Modal
@@ -62,15 +78,15 @@ export default function ConfirmationModal({
               accessibilityLabel={cancelLabel}
               className="flex-1 bg-background border border-border py-3.5 rounded-xl items-center justify-center active:opacity-75 min-h-[48px]"
             >
-              <Text className="text-body-md font-bold text-primary font-display font-semibold">
+              <Text className="text-body-md text-primary font-display font-semibold">
                 {cancelLabel}
               </Text>
             </ScalePressable>
             <ScalePressable
               onPress={() => {
                 onClose();
-                // Brief delay to allow modal dismiss animations to finish cleanly
-                setTimeout(() => {
+                if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                timeoutRef.current = setTimeout(() => {
                   onConfirm();
                 }, 100);
               }}
@@ -78,7 +94,7 @@ export default function ConfirmationModal({
               accessibilityLabel={confirmLabel}
               className={`flex-1 py-3.5 rounded-xl items-center justify-center active:opacity-85 min-h-[48px] ${confirmBtnBgClass}`}
             >
-              <Text className="text-body-md font-bold text-white font-display font-semibold">
+              <Text className="text-body-md text-white font-display font-semibold">
                 {confirmLabel}
               </Text>
             </ScalePressable>

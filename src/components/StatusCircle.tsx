@@ -70,7 +70,6 @@ export default function StatusCircle({
         alignItems: "center",
         justifyContent: "center",
       }}
-      className="items-center justify-center"
     >
       <Feather name={iconName} size={iconSize} color={iconColor} />
     </View>
